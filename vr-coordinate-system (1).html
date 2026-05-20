@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VR 3D Koordinatensystem</title>
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0,0,0,0.7);
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 1000;
+            max-width: 300px;
+        }
+        #info h3 {
+            margin: 0 0 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <h3>Analytische Geometrie - VR</h3>
+        <p><strong>Steuerung:</strong></p>
+        <ul style="margin: 5px 0; padding-left: 20px;">
+            <li>Joystick: Bewegung (links/rechts)</li>
+            <li>Trigger: Punkt erstellen</li>
+            <li>Grip: Punkt löschen</li>
+            <li>A/X: Linienmodus</li>
+            <li>B/Y: Ortsvektoren ein/aus</li>
+            <li>Thumbstick Click: Geradengleichungen ein/aus</li>
+        </ul>
+        <p style="margin-top: 10px; font-size: 12px;">
+            Punkte werden auf Gitterpunkte (0.5er Schritte) gesetzt.
+        </p>
+    </div>
+
+    <a-scene>
+        <!-- Kamera und VR-Controller -->
+        <a-entity id="rig" position="0 1.6 4" movement-controls="speed: 0.5; fly: false">
+            <a-camera></a-camera>
+            
+            <!-- Rechter Controller -->
+            <a-entity id="rightHand" 
+                      laser-controls="hand: right"
+                      raycaster="objects: .interactive; far: 15"
+                      line="color: cyan; opacity: 0.75">
+            </a-entity>
+            
+            <!-- Linker Controller -->
+            <a-entity id="leftHand" 
+                      laser-controls="hand: left"
+                      raycaster="objects: .interactive; far: 15"
+                      line="color: magenta; opacity: 0.75">
+            </a-entity>
+        </a-entity>
+
+        <!-- Koordinatensystem -->
+        <!-- X-Achse (rot) -->
+        <a-entity id="x-axis">
+            <a-cylinder position="2.5 0 0" rotation="0 0 90" radius="0.01" height="5" color="#ff0000"></a-cylinder>
+            <a-cone position="5 0 0" rotation="0 0 -90" radius-bottom="0.05" radius-top="0" height="0.2" color="#ff0000"></a-cone>
+            <a-text value="X" position="5.3 0 0" color="#ff0000" scale="0.5 0.5 0.5"></a-text>
+        </a-entity>
+
+        <!-- Y-Achse (grün) -->
+        <a-entity id="y-axis">
+            <a-cylinder position="0 2.5 0" rotation="0 0 0" radius="0.01" height="5" color="#00ff00"></a-cylinder>
+            <a-cone position="0 5 0" rotation="0 0 0" radius-bottom="0.05" radius-top="0" height="0.2" color="#00ff00"></a-cone>
+            <a-text value="Y" position="0 5.3 0" color="#00ff00" scale="0.5 0.5 0.5"></a-text>
+        </a-entity>
+
+        <!-- Z-Achse (blau) -->
+        <a-entity id="z-axis">
+            <a-cylinder position="0 0 2.5" rotation="90 0 0" radius="0.01" height="5" color="#0000ff"></a-cylinder>
+            <a-cone position="0 0 5" rotation="90 0 0" radius-bottom="0.05" radius-top="0" height="0.2" color="#0000ff"></a-cone>
+            <a-text value="Z" position="0 0 5.3" color="#0000ff" scale="0.5 0.5 0.5"></a-text>
+        </a-entity>
+
+        <!-- Gitter am Boden -->
+        <a-plane position="0 -0.01 0" rotation="-90 0 0" width="10" height="10" 
+                 color="#333333" opacity="0.5"></a-plane>
+        
+        <!-- Gitterlinien -->
+        <a-entity id="grid">
+            <!-- Horizontale Linien parallel zu Z -->
+            <a-cylinder position="-4 0 0" rotation="0 0 90" radius="0.005" height="10" color="#555555" opacity="0.3"></a-cylinder>
+            <a-cylinder position="-3 0 0" rotation="0 0 90" radius="0.005" height="10" color="#555555" opacity="0.3"></a-cylinder>
+            <a-cylinder position="-2 0 0" rotation="0 0 90" radius="0.005" height="10" color="#555555" opacity="0.3"></a-cylinder>
+            <a-cylinder position="-1 0 0" rotation="0 0 90" radius="0.005" height="10" color="#555555" opacity="0.3"></a-cylinder>
+            <a-cylinder position="1 0 0" rotation="0 0 90" radius="0.005" height="10" color="#555555" opacity="0.3"></a-cylinder>
+            <a-cylinder position="2 0 0" rotation="0 0 90" radius="0.005" height="10" color="#555555" opacity="0.3"></a-cylinder>
+            <a-cylinder position="3 0 0" rotation="0 0 90" radius="0.005" height="10" color="#555555" opacity="0.3"></a-cylinder>
+            <a-cylinder position="4 0 0" rotation="0 0 90" radius="0.005" height="10" color="#555555" opacity="0.3"></a-cylinder>
+            
+            <!-- Vertikale Linien parallel zu X -->
+            <a-cylinder position="0 0 -4" rotation="0 90 90" radius="0.005" height="10" color="#555555" opacity="0.3"></a-cylinder>
+            <a-cylinder position="0 0 -3" rotation="0 90 90" radius="0.005" height="10" color="#555555" opacity="0.3"></a-cylinder>
+            <a-cylinder position="0 0 -2" rotation="0 90 90" radius="0.005" height="10" color="#555555" opacity="0.3"></a-cylinder>
+            <a-cylinder position="0 0 -1" rotation="0 90 90" radius="0.005" height="10" color="#555555" opacity="0.3"></a-cylinder>
+            <a-cylinder position="0 0 1" rotation="0 90 90" radius="0.005" height="10" color="#555555" opacity="0.3"></a-cylinder>
+            <a-cylinder position="0 0 2" rotation="0 90 90" radius="0.005" height="10" color="#555555" opacity="0.3"></a-cylinder>
+            <a-cylinder position="0 0 3" rotation="0 90 90" radius="0.005" height="10" color="#555555" opacity="0.3"></a-cylinder>
+            <a-cylinder position="0 0 4" rotation="0 90 90" radius="0.005" height="10" color="#555555" opacity="0.3"></a-cylinder>
+        </a-entity>
+
+        <!-- Container für Punkte und Linien -->
+        <a-entity id="points-container"></a-entity>
+        <a-entity id="lines-container"></a-entity>
+        <a-entity id="vectors-container"></a-entity>
+        <a-entity id="equations-container"></a-entity>
+
+        <!-- Beleuchtung -->
+        <a-light type="ambient" color="#BBB"></a-light>
+        <a-light type="directional" position="2 4 3" intensity="0.5"></a-light>
+
+        <!-- Himmel -->
+        <a-sky color="#222222"></a-sky>
+    </a-scene>
+
+    <script>
+        // Globale Variablen
+        let points = [];
+        let lines = [];
+        let pointIdCounter = 0;
+        let lineIdCounter = 0;
+        let lineMode = false;
+        let firstPointForLine = null;
+        let showVectors = false;
+        let showEquations = false;
+
+        // Scene und Container Referenzen
+        const scene = document.querySelector('a-scene');
+        const pointsContainer = document.getElementById('points-container');
+        const linesContainer = document.getElementById('lines-container');
+        const vectorsContainer = document.getElementById('vectors-container');
+        const equationsContainer = document.getElementById('equations-container');
+
+        // Controller Setup nach Scene geladen
+        scene.addEventListener('loaded', function() {
+            const rightHand = document.getElementById('rightHand');
+            const leftHand = document.getElementById('leftHand');
+
+            if (rightHand) {
+                // Trigger: Punkt erstellen
+                rightHand.addEventListener('triggerdown', handleTrigger);
+                
+                // Grip: Punkt löschen
+                rightHand.addEventListener('gripdown', handleGrip);
+                
+                // A Button: Linienmodus umschalten
+                rightHand.addEventListener('abuttondown', toggleLineMode);
+                
+                // B Button: Ortsvektoren umschalten
+                rightHand.addEventListener('bbuttondown', toggleVectors);
+                
+                // Thumbstick Click: Geradengleichungen umschalten
+                rightHand.addEventListener('thumbstickdown', toggleEquations);
+            }
+
+            if (leftHand) {
+                // Auch linke Hand unterstützen
+                leftHand.addEventListener('triggerdown', handleTrigger);
+                leftHand.addEventListener('gripdown', handleGrip);
+                leftHand.addEventListener('xbuttondown', toggleLineMode);
+                leftHand.addEventListener('ybuttondown', toggleVectors);
+                leftHand.addEventListener('thumbstickdown', toggleEquations);
+            }
+        });
+
+        // Trigger: Punkt erstellen
+        function handleTrigger(evt) {
+            const raycaster = evt.target.components.raycaster;
+            const intersection = raycaster.intersections[0];
+            
+            if (!intersection || intersection.object.el.classList.contains('point')) {
+                // Kein Hit oder Hit auf existierenden Punkt - erstelle Punkt an Controller Position + 1m nach vorne
+                const controller = evt.target;
+                const position = new THREE.Vector3();
+                const direction = new THREE.Vector3(0, 0, -1);
+                
+                controller.object3D.getWorldPosition(position);
+                direction.applyQuaternion(controller.object3D.quaternion);
+                position.add(direction);
+                
+                // Snapping auf 0.5er Schritte
+                position.x = Math.round(position.x * 2) / 2;
+                position.y = Math.round(position.y * 2) / 2;
+                position.z = Math.round(position.z * 2) / 2;
+                
+                if (lineMode) {
+                    // Im Linienmodus: Punkt für Linie markieren
+                    if (!firstPointForLine) {
+                        const nearestPoint = findNearestPoint(position);
+                        if (nearestPoint) {
+                            firstPointForLine = nearestPoint;
+                            highlightPoint(nearestPoint, true);
+                        }
+                    } else {
+                        const secondPoint = findNearestPoint(position);
+                        if (secondPoint && secondPoint !== firstPointForLine) {
+                            createLine(firstPointForLine, secondPoint);
+                            highlightPoint(firstPointForLine, false);
+                            firstPointForLine = null;
+                        }
+                    }
+                } else {
+                    // Normal: Neuen Punkt erstellen
+                    createPoint(position.x, position.y, position.z);
+                }
+                return;
+            }
+            
+            // Hit auf etwas anderem - erstelle Punkt an Hit-Position (gesnapped)
+            if (!lineMode) {
+                const pos = intersection.point;
+                const x = Math.round(pos.x * 2) / 2;
+                const y = Math.round(pos.y * 2) / 2;
+                const z = Math.round(pos.z * 2) / 2;
+                createPoint(x, y, z);
+            }
+        }
+
+        // Grip: Punkt löschen
+        function handleGrip(evt) {
+            const raycaster = evt.target.components.raycaster;
+            const intersection = raycaster.intersections[0];
+            
+            if (intersection && intersection.object.el.classList.contains('point')) {
+                deletePoint(intersection.object.el);
+            }
+        }
+
+        // Linienmodus umschalten
+        function toggleLineMode() {
+            lineMode = !lineMode;
+            if (firstPointForLine) {
+                highlightPoint(firstPointForLine, false);
+                firstPointForLine = null;
+            }
+            console.log('Linienmodus:', lineMode ? 'AN' : 'AUS');
+            
+            // Visuelles Feedback
+            const sky = document.querySelector('a-sky');
+            if (lineMode) {
+                sky.setAttribute('color', '#223322');
+            } else {
+                sky.setAttribute('color', '#222222');
+            }
+        }
+        
+        // Ortsvektoren umschalten
+        function toggleVectors() {
+            showVectors = !showVectors;
+            console.log('Ortsvektoren:', showVectors ? 'AN' : 'AUS');
+            
+            if (showVectors) {
+                // Alle Ortsvektoren anzeigen
+                points.forEach(point => {
+                    createPositionVector(point);
+                });
+            } else {
+                // Alle Ortsvektoren entfernen
+                while (vectorsContainer.firstChild) {
+                    vectorsContainer.removeChild(vectorsContainer.firstChild);
+                }
+            }
+        }
+        
+        // Geradengleichungen umschalten
+        function toggleEquations() {
+            showEquations = !showEquations;
+            console.log('Geradengleichungen:', showEquations ? 'AN' : 'AUS');
+            
+            if (showEquations) {
+                // Alle Gleichungen anzeigen
+                lines.forEach(line => {
+                    createEquationLabel(line);
+                });
+            } else {
+                // Alle Gleichungen entfernen
+                while (equationsContainer.firstChild) {
+                    equationsContainer.removeChild(equationsContainer.firstChild);
+                }
+            }
+        }
+
+        // Punkt erstellen
+        function createPoint(x, y, z) {
+            const pointId = 'point-' + (pointIdCounter++);
+            
+            const point = document.createElement('a-sphere');
+            point.setAttribute('id', pointId);
+            point.setAttribute('class', 'point interactive');
+            point.setAttribute('position', `${x} ${y} ${z}`);
+            point.setAttribute('radius', '0.04');  // Kleinerer Radius
+            point.setAttribute('color', '#ffff00');
+            point.setAttribute('metalness', '0.5');
+            point.setAttribute('roughness', '0.5');
+            
+            // Label mit Koordinaten
+            const label = document.createElement('a-text');
+            label.setAttribute('value', `(${x.toFixed(1)}|${y.toFixed(1)}|${z.toFixed(1)})`);
+            label.setAttribute('position', '0 0.1 0');
+            label.setAttribute('align', 'center');
+            label.setAttribute('color', '#ffffff');
+            label.setAttribute('scale', '0.25 0.25 0.25');
+            label.setAttribute('look-at', '[camera]');
+            point.appendChild(label);
+            
+            pointsContainer.appendChild(point);
+            const pointData = { id: pointId, element: point, position: { x, y, z } };
+            points.push(pointData);
+            
+            // Wenn Ortsvektoren aktiviert sind, erstelle Vektor
+            if (showVectors) {
+                createPositionVector(pointData);
+            }
+            
+            console.log('Punkt erstellt:', pointId, 'bei', x, y, z);
+        }
+
+        // Punkt löschen
+        function deletePoint(pointElement) {
+            const pointId = pointElement.id;
+            
+            // Entferne Ortsvektor wenn vorhanden
+            const vector = document.getElementById('vector-' + pointId);
+            if (vector) {
+                vector.parentNode.removeChild(vector);
+            }
+            
+            // Entferne alle Linien, die diesen Punkt verwenden
+            lines = lines.filter(line => {
+                if (line.point1Id === pointId || line.point2Id === pointId) {
+                    line.element.parentNode.removeChild(line.element);
+                    // Entferne auch die Gleichung falls vorhanden
+                    const eqLabel = document.getElementById('eq-' + line.id);
+                    if (eqLabel) {
+                        eqLabel.parentNode.removeChild(eqLabel);
+                    }
+                    return false;
+                }
+                return true;
+            });
+            
+            // Entferne den Punkt
+            pointElement.parentNode.removeChild(pointElement);
+            points = points.filter(p => p.id !== pointId);
+            
+            console.log('Punkt gelöscht:', pointId);
+        }
+
+        // Linie zwischen zwei Punkten erstellen (unendliche Gerade)
+        function createLine(point1, point2) {
+            const lineId = 'line-' + (lineIdCounter++);
+            
+            const pos1 = point1.position;
+            const pos2 = point2.position;
+            
+            // Richtungsvektor berechnen
+            const direction = new THREE.Vector3(
+                pos2.x - pos1.x,
+                pos2.y - pos1.y,
+                pos2.z - pos1.z
+            ).normalize();
+            
+            // Sehr lange Linie erstellen (unendliche Gerade simulieren)
+            const lineLength = 50; // Sehr lang, damit sie wie unendlich aussieht
+            
+            // Berechne Mittelpunkt zwischen den beiden Punkten
+            const midpoint = {
+                x: (pos1.x + pos2.x) / 2,
+                y: (pos1.y + pos2.y) / 2,
+                z: (pos1.z + pos2.z) / 2
+            };
+            
+            const line = document.createElement('a-cylinder');
+            line.setAttribute('id', lineId);
+            line.setAttribute('position', `${midpoint.x} ${midpoint.y} ${midpoint.z}`);
+            line.setAttribute('radius', '0.015');
+            line.setAttribute('height', lineLength);
+            line.setAttribute('color', '#00ffff');
+            line.setAttribute('opacity', '0.6');
+            
+            // Ausrichtung der Linie
+            line.object3D.quaternion.setFromUnitVectors(
+                new THREE.Vector3(0, 1, 0),
+                direction
+            );
+            
+            linesContainer.appendChild(line);
+            const lineData = {
+                id: lineId,
+                element: line,
+                point1Id: point1.id,
+                point2Id: point2.id,
+                point1: pos1,
+                point2: pos2,
+                direction: direction
+            };
+            lines.push(lineData);
+            
+            // Wenn Gleichungen aktiviert sind, erstelle Label
+            if (showEquations) {
+                createEquationLabel(lineData);
+            }
+            
+            console.log('Gerade erstellt:', lineId, 'durch', point1.id, 'und', point2.id);
+        }
+
+        // Finde nächsten Punkt zu einer Position
+        function findNearestPoint(position) {
+            let nearest = null;
+            let minDistance = 0.3; // Maximale Distanz für Auswahl
+            
+            points.forEach(point => {
+                const pos = point.position;
+                const distance = Math.sqrt(
+                    Math.pow(position.x - pos.x, 2) +
+                    Math.pow(position.y - pos.y, 2) +
+                    Math.pow(position.z - pos.z, 2)
+                );
+                
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    nearest = point;
+                }
+            });
+            
+            return nearest;
+        }
+
+        // Punkt hervorheben
+        function highlightPoint(point, highlight) {
+            if (highlight) {
+                point.element.setAttribute('color', '#00ff00');
+                point.element.setAttribute('scale', '1.5 1.5 1.5');
+            } else {
+                point.element.setAttribute('color', '#ffff00');
+                point.element.setAttribute('scale', '1 1 1');
+            }
+        }
+        
+        // Ortsvektor erstellen
+        function createPositionVector(point) {
+            const vectorId = 'vector-' + point.id;
+            const pos = point.position;
+            
+            // Prüfe ob Vektor bereits existiert
+            if (document.getElementById(vectorId)) {
+                return;
+            }
+            
+            const length = Math.sqrt(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z);
+            
+            if (length < 0.01) {
+                return; // Ursprung hat keinen Vektor
+            }
+            
+            const vectorGroup = document.createElement('a-entity');
+            vectorGroup.setAttribute('id', vectorId);
+            
+            // Pfeil (Linie vom Ursprung zum Punkt)
+            const arrow = document.createElement('a-cylinder');
+            arrow.setAttribute('position', `${pos.x/2} ${pos.y/2} ${pos.z/2}`);
+            arrow.setAttribute('radius', '0.012');
+            arrow.setAttribute('height', length);
+            arrow.setAttribute('color', '#ff00ff');
+            arrow.setAttribute('opacity', '0.7');
+            
+            // Richtung
+            const direction = new THREE.Vector3(pos.x, pos.y, pos.z).normalize();
+            arrow.object3D.quaternion.setFromUnitVectors(
+                new THREE.Vector3(0, 1, 0),
+                direction
+            );
+            
+            vectorGroup.appendChild(arrow);
+            
+            // Pfeilspitze
+            const cone = document.createElement('a-cone');
+            cone.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
+            cone.setAttribute('radius-bottom', '0.03');
+            cone.setAttribute('radius-top', '0');
+            cone.setAttribute('height', '0.1');
+            cone.setAttribute('color', '#ff00ff');
+            
+            cone.object3D.quaternion.setFromUnitVectors(
+                new THREE.Vector3(0, 1, 0),
+                direction
+            );
+            
+            vectorGroup.appendChild(cone);
+            
+            // Label mit Vektornotation
+            const label = document.createElement('a-text');
+            const vectorNotation = `→\\nOA = (${pos.x.toFixed(1)}|${pos.y.toFixed(1)}|${pos.z.toFixed(1)})`;
+            label.setAttribute('value', vectorNotation);
+            label.setAttribute('position', `${pos.x/2 + 0.2} ${pos.y/2} ${pos.z/2}`);
+            label.setAttribute('align', 'left');
+            label.setAttribute('color', '#ff00ff');
+            label.setAttribute('scale', '0.2 0.2 0.2');
+            label.setAttribute('look-at', '[camera]');
+            
+            vectorGroup.appendChild(label);
+            
+            vectorsContainer.appendChild(vectorGroup);
+        }
+        
+        // Geradengleichung erstellen
+        function createEquationLabel(line) {
+            const eqId = 'eq-' + line.id;
+            
+            // Prüfe ob Label bereits existiert
+            if (document.getElementById(eqId)) {
+                return;
+            }
+            
+            const pos1 = line.point1;
+            const dir = line.direction;
+            
+            // Geradengleichung: g: x = (x1, y1, z1) + t * (dx, dy, dz)
+            // Vereinfachte Darstellung mit ganzen/halben Zahlen
+            const equation = `g: →x = (${pos1.x.toFixed(1)}|${pos1.y.toFixed(1)}|${pos1.z.toFixed(1)}) + t·(${dir.x.toFixed(2)}|${dir.y.toFixed(2)}|${dir.z.toFixed(2)})`;
+            
+            const midpoint = {
+                x: (line.point1.x + line.point2.x) / 2,
+                y: (line.point1.y + line.point2.y) / 2,
+                z: (line.point1.z + line.point2.z) / 2
+            };
+            
+            const label = document.createElement('a-text');
+            label.setAttribute('id', eqId);
+            label.setAttribute('value', equation);
+            label.setAttribute('position', `${midpoint.x} ${midpoint.y + 0.3} ${midpoint.z}`);
+            label.setAttribute('align', 'center');
+            label.setAttribute('color', '#00ffff');
+            label.setAttribute('scale', '0.18 0.18 0.18');
+            label.setAttribute('look-at', '[camera]');
+            
+            equationsContainer.appendChild(label);
+        }
+    
+    </script>
+</body>
+</html>
