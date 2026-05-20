@@ -1,114 +1,688 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>WebXR VR Demo – Three.js</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebXR Analytische Geometrie VR</title>
+
+  <script type="module" src="https://unpkg.com/three@0.165.0/build/three.module.js"></script>
+
   <style>
-    html, body { height: 100%; margin: 0; overflow: hidden; background: #111; }
-    #info {
-      position: absolute; top: 10px; left: 10px; color: #fff;
-      font-family: system-ui, Arial, sans-serif; font-size: 14px;
-      background: rgba(0,0,0,0.35); padding: 8px 10px; border-radius: 6px;
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #050505;
+      font-family: Arial, sans-serif;
+    }
+
+    #overlay {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      color: white;
+      z-index: 10;
+      background: rgba(0,0,0,0.6);
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    #vrButton {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      z-index: 20;
+      padding: 14px 24px;
+      border-radius: 12px;
+      border: none;
+      background: #1d7fff;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
     }
   </style>
 </head>
+
 <body>
-  <div id="info">WebXR VR Demo: Drücke den Trigger, um die Box schneller zu drehen.</div>
 
-  <script type="module">
-    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.164/build/three.module.js';
-    import { VRButton } from 'https://cdn.jsdelivr.net/npm/three@0.164/examples/jsm/webxr/VRButton.js';
+<div id="overlay">
+  <b>VR Analytische Geometrie</b><br>
+  X/A = Modus wechseln<br>
+  Trigger = Punkt erzeugen / Punkt wählen<br>
+  Linker Stick = Bewegung<br>
+  Rechter Stick = Snap Turn
+</div>
 
-    let scene, camera, renderer, cube;
-    const controllers = [];
+<button id="vrButton">VR STARTEN</button>
 
-    init();
-    function init() {
-      // Szene, Kamera, Renderer
-      scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x202025);
+<script type="module">
 
-      camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 100);
-      camera.position.set(0, 1.6, 3);
+import * as THREE from 'https://unpkg.com/three@0.165.0/build/three.module.js';
 
-      renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setPixelRatio(window.devicePixelRatio);
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.xr.enabled = true;
+import { VRButton } from 'https://unpkg.com/three@0.165.0/examples/jsm/webxr/VRButton.js';
+import { XRControllerModelFactory } from 'https://unpkg.com/three@0.165.0/examples/jsm/webxr/XRControllerModelFactory.js';
 
-      document.body.appendChild(renderer.domElement);
-      document.body.appendChild(VRButton.createButton(renderer));
+/////////////////////////////////////////////////////////
+// BASIS
+/////////////////////////////////////////////////////////
 
-      // Licht
-      const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1.0);
-      hemi.position.set(0, 1, 0);
-      scene.add(hemi);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x080808);
 
-      const dir = new THREE.DirectionalLight(0xffffff, 0.8);
-      dir.position.set(3, 10, 10);
-      scene.add(dir);
+const camera = new THREE.PerspectiveCamera(
+  70,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  500
+);
 
-      // Boden
-      const floorGeo = new THREE.PlaneGeometry(20, 20);
-      const floorMat = new THREE.MeshStandardMaterial({ color: 0x222228, metalness: 0.0, roughness: 1.0 });
-      const floor = new THREE.Mesh(floorGeo, floorMat);
-      floor.rotation.x = -Math.PI / 2;
-      floor.position.y = 0;
-      floor.receiveShadow = true;
-      scene.add(floor);
+camera.position.set(0, 1.7, 5);
 
-      // Box
-      const geo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-      const mat = new THREE.MeshStandardMaterial({ color: 0x3fa9f5, roughness: 0.4, metalness: 0.1 });
-      cube = new THREE.Mesh(geo, mat);
-      cube.position.set(0, 1.25, -1.5);
-      scene.add(cube);
+const renderer = new THREE.WebGLRenderer({
+  antialias: true
+});
 
-      // Controller (mit einfacher Strahllinie)
-      for (let i = 0; i < 2; i++) {
-        const controller = renderer.xr.getController(i);
-        controller.addEventListener('selectstart', () => controller.userData.isSelecting = true);
-        controller.addEventListener('selectend',   () => controller.userData.isSelecting = false);
-        scene.add(controller);
-        controllers.push(controller);
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.xr.enabled = true;
+renderer.setPixelRatio(window.devicePixelRatio);
 
-        const rayGeo = new THREE.BufferGeometry().setFromPoints([
-          new THREE.Vector3(0, 0, 0),
-          new THREE.Vector3(0, 0, -1)
-        ]);
-        const ray = new THREE.Line(rayGeo, new THREE.LineBasicMaterial({ color: 0xffffff }));
-        ray.name = 'ray';
-        ray.scale.z = 2;
-        controller.add(ray);
+document.body.appendChild(renderer.domElement);
+
+document.body.appendChild(VRButton.createButton(renderer));
+
+/////////////////////////////////////////////////////////
+// LICHT
+/////////////////////////////////////////////////////////
+
+const ambient = new THREE.AmbientLight(0xffffff, 0.9);
+scene.add(ambient);
+
+const dir = new THREE.DirectionalLight(0xffffff, 0.7);
+dir.position.set(10, 20, 10);
+scene.add(dir);
+
+/////////////////////////////////////////////////////////
+// GRUPPEN
+/////////////////////////////////////////////////////////
+
+const world = new THREE.Group();
+scene.add(world);
+
+/////////////////////////////////////////////////////////
+// GRID
+/////////////////////////////////////////////////////////
+
+const grid = new THREE.GridHelper(50, 50, 0x444444, 0x222222);
+grid.position.y = 0;
+world.add(grid);
+
+/////////////////////////////////////////////////////////
+// ACHSEN
+/////////////////////////////////////////////////////////
+
+createAxis(
+  new THREE.Vector3(-25,0,0),
+  new THREE.Vector3(25,0,0),
+  0xff3333,
+  "x"
+);
+
+createAxis(
+  new THREE.Vector3(0,-0.01,-25),
+  new THREE.Vector3(0,-0.01,25),
+  0x3399ff,
+  "z"
+);
+
+createAxis(
+  new THREE.Vector3(0,0,0),
+  new THREE.Vector3(0,25,0),
+  0x33ff66,
+  "y"
+);
+
+function createAxis(start, end, color, label) {
+
+  const material = new THREE.LineBasicMaterial({
+    color
+  });
+
+  const geometry = new THREE.BufferGeometry().setFromPoints([
+    start,
+    end
+  ]);
+
+  const line = new THREE.Line(geometry, material);
+  world.add(line);
+
+  const text = createTextSprite(label, color);
+  text.position.copy(end);
+  world.add(text);
+}
+
+/////////////////////////////////////////////////////////
+// TEXT SPRITES
+/////////////////////////////////////////////////////////
+
+function createTextSprite(message, color="#ffffff") {
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+
+  canvas.width = 512;
+  canvas.height = 256;
+
+  ctx.fillStyle = "rgba(0,0,0,0)";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  ctx.font = "48px Arial";
+  ctx.fillStyle = color;
+  ctx.textAlign = "center";
+
+  ctx.fillText(message, 256, 120);
+
+  const texture = new THREE.CanvasTexture(canvas);
+
+  const material = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true
+  });
+
+  const sprite = new THREE.Sprite(material);
+
+  sprite.scale.set(1.8,0.9,1);
+
+  return sprite;
+}
+
+/////////////////////////////////////////////////////////
+// DATEN
+/////////////////////////////////////////////////////////
+
+let pointCounter = 1;
+
+const points = [];
+const lines = [];
+const vectors = [];
+
+let mode = "point";
+
+let selectedPoints = [];
+
+let showVectors = true;
+let showEquations = true;
+let snapEnabled = true;
+
+/////////////////////////////////////////////////////////
+// CONTROLLER
+/////////////////////////////////////////////////////////
+
+const controller1 = renderer.xr.getController(0);
+const controller2 = renderer.xr.getController(1);
+
+scene.add(controller1);
+scene.add(controller2);
+
+const controllerGrip1 = renderer.xr.getControllerGrip(0);
+const controllerGrip2 = renderer.xr.getControllerGrip(1);
+
+const controllerModelFactory = new XRControllerModelFactory();
+
+controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
+controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
+
+scene.add(controllerGrip1);
+scene.add(controllerGrip2);
+
+/////////////////////////////////////////////////////////
+// LASER
+/////////////////////////////////////////////////////////
+
+const geometry = new THREE.BufferGeometry().setFromPoints([
+  new THREE.Vector3(0,0,0),
+  new THREE.Vector3(0,0,-10)
+]);
+
+const laser = new THREE.Line(
+  geometry,
+  new THREE.LineBasicMaterial({ color: 0xffffff })
+);
+
+laser.name = "laser";
+laser.scale.z = 5;
+
+controller1.add(laser.clone());
+controller2.add(laser.clone());
+
+/////////////////////////////////////////////////////////
+// RAYCASTER
+/////////////////////////////////////////////////////////
+
+const raycaster = new THREE.Raycaster();
+
+/////////////////////////////////////////////////////////
+// CURSOR
+/////////////////////////////////////////////////////////
+
+const cursor = new THREE.Mesh(
+  new THREE.SphereGeometry(0.05,16,16),
+  new THREE.MeshBasicMaterial({
+    color: 0xffff00
+  })
+);
+
+scene.add(cursor);
+
+/////////////////////////////////////////////////////////
+// UI BUTTONS
+/////////////////////////////////////////////////////////
+
+createUIButton(
+  "Ortsvektoren",
+  new THREE.Vector3(-1.5, 2.0, -2),
+  () => {
+    showVectors = !showVectors;
+
+    vectors.forEach(v => {
+      v.visible = showVectors;
+    });
+  }
+);
+
+createUIButton(
+  "Geradengleichungen",
+  new THREE.Vector3(0, 2.0, -2),
+  () => {
+
+    showEquations = !showEquations;
+
+    lines.forEach(l => {
+      l.label.visible = showEquations;
+    });
+  }
+);
+
+createUIButton(
+  "Rasterfang",
+  new THREE.Vector3(1.5, 2.0, -2),
+  () => {
+    snapEnabled = !snapEnabled;
+  }
+);
+
+function createUIButton(text, position, callback) {
+
+  const group = new THREE.Group();
+
+  const plane = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.9,0.3),
+    new THREE.MeshBasicMaterial({
+      color: 0x222222
+    })
+  );
+
+  group.add(plane);
+
+  const label = createTextSprite(text, "#ffffff");
+  label.scale.set(0.8,0.35,1);
+  group.add(label);
+
+  group.position.copy(position);
+
+  group.userData.callback = callback;
+
+  scene.add(group);
+
+  uiButtons.push(group);
+}
+
+const uiButtons = [];
+
+/////////////////////////////////////////////////////////
+// EINGABE
+/////////////////////////////////////////////////////////
+
+controller1.addEventListener("selectstart", onTrigger);
+
+window.addEventListener("keydown", (e) => {
+
+  if(e.key === "m") {
+    toggleMode();
+  }
+});
+
+function toggleMode() {
+
+  if(mode === "point") {
+    mode = "line";
+  } else {
+    mode = "point";
+  }
+
+  console.log("Modus:", mode);
+}
+
+/////////////////////////////////////////////////////////
+// TRIGGER
+/////////////////////////////////////////////////////////
+
+function onTrigger() {
+
+  if(mode === "point") {
+
+    createPoint(cursor.position.clone());
+
+  } else {
+
+    selectPoint();
+  }
+}
+
+/////////////////////////////////////////////////////////
+// PUNKTE
+/////////////////////////////////////////////////////////
+
+function createPoint(position) {
+
+  if(snapEnabled) {
+
+    position.x = Math.round(position.x * 2) / 2;
+    position.y = Math.round(position.y * 2) / 2;
+    position.z = Math.round(position.z * 2) / 2;
+  }
+
+  const sphere = new THREE.Mesh(
+    new THREE.SphereGeometry(0.12, 32, 32),
+    new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      emissive: 0x222222
+    })
+  );
+
+  sphere.position.copy(position);
+
+  sphere.userData.name = "P" + pointCounter;
+
+  world.add(sphere);
+
+  const text = createTextSprite(
+    `${sphere.userData.name}(${position.x} | ${position.y} | ${position.z})`,
+    "#ffffff"
+  );
+
+  text.position.copy(position);
+  text.position.y += 0.4;
+
+  world.add(text);
+
+  sphere.userData.label = text;
+
+  points.push(sphere);
+
+  createVector(position);
+
+  pointCounter++;
+}
+
+/////////////////////////////////////////////////////////
+// ORTSVEKTOREN
+/////////////////////////////////////////////////////////
+
+function createVector(position) {
+
+  const dir = position.clone().normalize();
+
+  const length = position.length();
+
+  const arrow = new THREE.ArrowHelper(
+    dir,
+    new THREE.Vector3(0,0,0),
+    length,
+    0xffff00,
+    0.2,
+    0.1
+  );
+
+  arrow.visible = showVectors;
+
+  vectors.push(arrow);
+
+  world.add(arrow);
+}
+
+/////////////////////////////////////////////////////////
+// PUNKTAUSWAHL
+/////////////////////////////////////////////////////////
+
+function selectPoint() {
+
+  raycaster.setFromXRController(controller1);
+
+  const intersects = raycaster.intersectObjects(points);
+
+  if(intersects.length > 0) {
+
+    const point = intersects[0].object;
+
+    point.material.emissive.setHex(0xffff00);
+
+    selectedPoints.push(point);
+
+    if(selectedPoints.length === 2) {
+
+      createLine(
+        selectedPoints[0],
+        selectedPoints[1]
+      );
+
+      selectedPoints.forEach(p => {
+        p.material.emissive.setHex(0x222222);
+      });
+
+      selectedPoints = [];
+    }
+  }
+}
+
+/////////////////////////////////////////////////////////
+// GERADE
+/////////////////////////////////////////////////////////
+
+function createLine(p1, p2) {
+
+  const color = new THREE.Color().setHSL(Math.random(), 1, 0.5);
+
+  const direction = new THREE.Vector3()
+    .subVectors(p2.position, p1.position);
+
+  const start = p1.position.clone()
+    .add(direction.clone().normalize().multiplyScalar(-20));
+
+  const end = p1.position.clone()
+    .add(direction.clone().normalize().multiplyScalar(20));
+
+  const geometry = new THREE.BufferGeometry().setFromPoints([
+    start,
+    end
+  ]);
+
+  const material = new THREE.LineBasicMaterial({
+    color
+  });
+
+  const line = new THREE.Line(geometry, material);
+
+  world.add(line);
+
+  const arrow = new THREE.ArrowHelper(
+    direction.clone().normalize(),
+    p1.position,
+    2,
+    color
+  );
+
+  world.add(arrow);
+
+  const eq = `
+g : x =
+(${r(p1.position.x)} / ${r(p1.position.y)} / ${r(p1.position.z)})
++ t ·
+(${r(direction.x)} / ${r(direction.y)} / ${r(direction.z)})
+`;
+
+  const label = createTextSprite(eq, "#" + color.getHexString());
+
+  label.position.copy(
+    p1.position.clone().add(new THREE.Vector3(0,1,0))
+  );
+
+  label.visible = showEquations;
+
+  world.add(label);
+
+  line.userData.label = label;
+
+  lines.push({
+    line,
+    label
+  });
+}
+
+/////////////////////////////////////////////////////////
+// HILFSFUNKTION
+/////////////////////////////////////////////////////////
+
+function r(v) {
+  return Math.round(v * 10) / 10;
+}
+
+/////////////////////////////////////////////////////////
+// CURSOR POSITION
+/////////////////////////////////////////////////////////
+
+function updateCursor() {
+
+  const tempMatrix = new THREE.Matrix4();
+
+  tempMatrix.identity().extractRotation(controller1.matrixWorld);
+
+  raycaster.ray.origin.setFromMatrixPosition(controller1.matrixWorld);
+
+  raycaster.ray.direction
+    .set(0,0,-1)
+    .applyMatrix4(tempMatrix);
+
+  const plane = new THREE.Plane(
+    new THREE.Vector3(0,1,0),
+    0
+  );
+
+  const hit = new THREE.Vector3();
+
+  raycaster.ray.intersectPlane(plane, hit);
+
+  if(hit) {
+
+    if(snapEnabled) {
+
+      hit.x = Math.round(hit.x * 2) / 2;
+      hit.z = Math.round(hit.z * 2) / 2;
+    }
+
+    cursor.position.copy(hit);
+  }
+}
+
+/////////////////////////////////////////////////////////
+// BEWEGUNG
+/////////////////////////////////////////////////////////
+
+const player = new THREE.Group();
+player.add(camera);
+scene.add(player);
+
+function handleMovement() {
+
+  const session = renderer.xr.getSession();
+
+  if(!session) return;
+
+  for(const source of session.inputSources) {
+
+    if(source.gamepad) {
+
+      const axes = source.gamepad.axes;
+
+      if(axes.length >= 2) {
+
+        const moveX = axes[2] || 0;
+        const moveZ = axes[3] || 0;
+
+        const speed = 0.05;
+
+        player.position.x += moveX * speed;
+        player.position.z += moveZ * speed;
       }
-
-      window.addEventListener('resize', onWindowResize);
-      renderer.setAnimationLoop(animate);
     }
+  }
+}
 
-    function onWindowResize() {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    }
+/////////////////////////////////////////////////////////
+// ANIMATION
+/////////////////////////////////////////////////////////
 
-    function animate(time) {
-      // langsame Rotation
-      cube.rotation.y += 0.005;
+renderer.setAnimationLoop(() => {
 
-      // bei Trigger schneller drehen + Farbe ändern
-      let anySelecting = false;
-      for (const c of controllers) {
-        if (c.userData.isSelecting) {
-          cube.rotation.y += 0.04;
-          anySelecting = true;
-        }
+  updateCursor();
+
+  handleMovement();
+
+  renderer.render(scene, camera);
+});
+
+/////////////////////////////////////////////////////////
+// RESIZE
+/////////////////////////////////////////////////////////
+
+window.addEventListener("resize", () => {
+
+  camera.aspect = window.innerWidth / window.innerHeight;
+
+  camera.updateProjectionMatrix();
+
+  renderer.setSize(
+    window.innerWidth,
+    window.innerHeight
+  );
+});
+
+/////////////////////////////////////////////////////////
+// MODUSWECHSEL CONTROLLER BUTTON
+/////////////////////////////////////////////////////////
+
+renderer.xr.addEventListener("sessionstart", () => {
+
+  const session = renderer.xr.getSession();
+
+  session.addEventListener("inputsourceschange", () => {
+
+    for(const source of session.inputSources) {
+
+      if(source.gamepad) {
+
+        source.gamepad.addEventListener?.("buttondown", (e) => {
+
+          if(e.index === 4) {
+            toggleMode();
+          }
+        });
       }
-      cube.material.color.setHex(anySelecting ? 0xff7f50 : 0x3fa9f5);
-
-      renderer.render(scene, camera);
     }
-  </script>
+  });
+});
+
+</script>
+
 </body>
 </html>
