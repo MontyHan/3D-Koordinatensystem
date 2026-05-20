@@ -123,7 +123,14 @@
         <!-- Beleuchtung -->
         <a-light type="ambient" color="#BBB"></a-light>
         <a-light type="directional" position="2 4 3" intensity="0.5"></a-light>
-
+        
+        <!-- Genauere Cursor-Positionsmarkierung -->
+        <a-sphere id="cursor-marker"
+          radius="0.03"
+          color="#00ff00"
+          visible="false">
+        </a-sphere>
+        
         <!-- Himmel -->
         <a-sky color="#222222"></a-sky>
     </a-scene>
@@ -145,11 +152,14 @@
         const linesContainer = document.getElementById('lines-container');
         const vectorsContainer = document.getElementById('vectors-container');
         const equationsContainer = document.getElementById('equations-container');
+        const cursorMarker = document.getElementById('cursor-marker');
 
         // Controller Setup nach Scene geladen
         scene.addEventListener('loaded', function() {
             const rightHand = document.getElementById('rightHand');
             const leftHand = document.getElementById('leftHand');
+            //Bin nicht sicher, ob diese Zeile hier so hin muss
+            scene.addEventListener('tick', updateCursor);
 
             if (rightHand) {
                 // Trigger: Punkt erstellen
@@ -551,6 +561,31 @@
             
             equationsContainer.appendChild(label);
         }
+           
+            //ganze Funktion mit gpt5 ergänzt
+            function updateCursor() {
+    const rightHand = document.getElementById('rightHand');
+
+    if (!rightHand || !rightHand.components.raycaster) return;
+
+    const intersections = rightHand.components.raycaster.intersections;
+
+    if (intersections.length > 0) {
+        const hit = intersections[0];
+
+        const pos = hit.point;
+
+        // Auf 0.5er Raster snappen
+        const x = Math.round(pos.x * 2) / 2;
+        const y = Math.round(pos.y * 2) / 2;
+        const z = Math.round(pos.z * 2) / 2;
+
+        cursorMarker.setAttribute('visible', true);
+        cursorMarker.setAttribute('position', `${x} ${y} ${z}`);
+    } else {
+        cursorMarker.setAttribute('visible', false);
+    }
+}
     
     </script>
 </body>
