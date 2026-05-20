@@ -1,0 +1,744 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>WebXR – Analytische Geometrie (Klasse 11)</title>
+  <style>
+    html, body { margin:0; height:100%; background:#111; color:#fff; font-family: system-ui, Arial, sans-serif; }
+    .hint { position: absolute; left: 10px; top: 10px; font-size: 14px; opacity:.8; }
+  </style>
+</head>
+<body>
+  <div class="hint">
+    WebXR – Analytische Geometrie<br/>
+    Steuerung: Trigger = Aktion, A/X = Modus wechseln, Linker Stick = Bewegen, Rechter Stick (horizontal) = Snap-Turn<br/>
+    Modus: Punktmodus (Standard) – Trigger erstellt Punkt | Geradenmodus – Trigger wählt 2 Punkte → Gerade
+  </div>
+
+  <script type="module">
+    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.164/build/three.module.js';
+    import { VRButton } from 'https://cdn.jsdelivr.net/npm/three@0.164/examples/jsm/webxr/VRButton.js';
+    import { XRControllerModelFactory } from 'https://cdn.jsdelivr.net/npm/three@0.164/examples/jsm/webxr/XRControllerModelFactory.js';
+
+    // ---------- Globale Variablen ----------
+    let scene, renderer, camera, rig;
+    let grid, gridFine, axesHelper;
+    let uiRoot, uiButtons = [];
+    let controllers = { left: null, right: null, any: [] };
+    let raycaster = new THREE.Raycaster();
+    const tmpV1 = new THREE.Vector3(), tmpV2 = new THREE.Vector3(), tmpM4 = new THREE.Matrix4();
+
+    const SETTINGS = {
+      worldRange: 20,
+      gridDivisions: 40,
+      reticleDistance: 3.0,
+      pointRadius: 0.06,
+      axisLength: 8,
+      tickRange: 6,
+      snapStep: 0.5, // Ganzzahl oder halbe Einheiten
+      locomotionSpeed: 1.6, // m/s
+      snapTurnAngleDeg: 30,
+      snapTurnCooldownMs: 280
+    };
+
+    // UI State
+    const STATE = {
+      mode: 'point', // 'point' | 'line'
+      showOrtsvektoren: false,
+      showLineEquations: true,
+      snapToGrid: false
+    };
+
+    // Datencontainer
+    let points = []; // {name, mesh, label, pos:THREE.Vector3, arrow:THREE.ArrowHelper}
+    let lines = [];  // {id, color, p1, p2, dir:THREE.Vector3, support:THREE.Vector3, mesh, eqLabel, dirArrow}
+    let selectedForLine = []; // Array von Punkt-Objekten
+
+    let nextPointIdx = 1;
+    let nextLineIdx = 1;
+
+    // Farbschema
+    const LINE_COLORS = [
+      0xff5252, 0x40c4ff, 0x69f0ae, 0xffd740, 0xb388ff, 0xff8a80, 0x64ffda, 0xffb74d
+    ];
+    let lineColorIdx = 0;
+
+    // Reticle/Laser
+    const reticle = new THREE.Mesh(
+      new THREE.SphereGeometry(SETTINGS.pointRadius * 0.8, 16, 12),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 })
+    );
+    reticle.visible = true;
+
+    // UI/HUD
+    let hudGroup, hudModeText;
+
+    // Locomotion
+    let lastSnapTurnTime = 0;
+
+    // ---------- Initialisierung ----------
+    init();
+    function init() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x111111);
+
+      // Licht
+      const hemi = new THREE.HemisphereLight(0xffffff, 0x303040, 1.0);
+      hemi.position.set(0, 1, 0);
+      scene.add(hemi);
+      const dir = new THREE.DirectionalLight(0xffffff, 0.7);
+      dir.position.set(6, 10, 6);
+      scene.add(dir);
+
+      // Kamera + Rig (für Locomotion)
+      camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.05, 200);
+      rig = new THREE.Group();
+      rig.position.set(0, 1.6, 3);
+      rig.add(camera);
+      scene.add(rig);
+
+      // Renderer
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.xr.enabled = true;
+      document.body.appendChild(renderer.domElement);
+      document.body.appendChild(VRButton.createButton(renderer));
+
+      // Koordinatensystem + Raster
+      buildAxesAndGrid();
+
+      // Reticle
+      scene.add(reticle);
+
+      // Controller
+      setupControllers();
+
+      // UI
+      buildUI();
+      buildHUD();
+
+      // Resize
+      window.addEventListener('resize', onWindowResize);
+
+      // Start
+      renderer.setAnimationLoop(tick);
+      updateHUD();
+    }
+
+    // ---------- Koordinatensystem, Achsen, Grid, Labels ----------
+    function buildAxesAndGrid() {
+      // Grid (x-z-Ebene)
+      grid = new THREE.GridHelper(SETTINGS.worldRange, SETTINGS.gridDivisions, 0x444444, 0x222222);
+      grid.material.transparent = true;
+      grid.material.opacity = 0.9;
+      scene.add(grid);
+
+      // Feineres Grid sichtbar, wenn Snap aktiv
+      gridFine = new THREE.GridHelper(SETTINGS.worldRange, SETTINGS.gridDivisions * 2, 0x226688, 0x1a2a33);
+      gridFine.position.y = 0.001; // minimal offset, damit sichtbar
+      gridFine.visible = false;
+      gridFine.material.transparent = true;
+      gridFine.material.opacity = 0.6;
+      scene.add(gridFine);
+
+      // Achsen (farbig): x rot, y grün, z blau
+      const axisLen = SETTINGS.axisLength;
+      const axisGroup = new THREE.Group();
+      axisGroup.name = 'axes';
+
+      function makeAxis(dir, color) {
+        const mat = new THREE.LineBasicMaterial({ color, linewidth: 2 });
+        const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), dir.clone().multiplyScalar(axisLen)]);
+        const line = new THREE.Line(geo, mat);
+        axisGroup.add(line);
+
+        // Pfeil an positiver Richtung
+        const arrow = new THREE.ArrowHelper(dir.clone().normalize(), new THREE.Vector3(), axisLen, color, 0.25, 0.15);
+        axisGroup.add(arrow);
+      }
+      makeAxis(new THREE.Vector3(1,0,0), 0xff4444);
+      makeAxis(new THREE.Vector3(0,1,0), 0x44ff44);
+      makeAxis(new THREE.Vector3(0,0,1), 0x4488ff);
+
+      // Achsen-Beschriftungen
+      axisGroup.add(makeTextSprite('x', '#ff4444', 64, { pos: new THREE.Vector3(axisLen+0.3, 0, 0) }));
+      axisGroup.add(makeTextSprite('y', '#44ff44', 64, { pos: new THREE.Vector3(0, axisLen+0.3, 0) }));
+      axisGroup.add(makeTextSprite('z', '#4488ff', 64, { pos: new THREE.Vector3(0, 0, axisLen+0.3) }));
+
+      // Skalierungsmarken (Ticks) an den Achsen
+      const tickGroup = new THREE.Group();
+      const tickMat = new THREE.LineBasicMaterial({ color: 0xaaaaaa });
+      function addTicks(axis) {
+        for (let i = -SETTINGS.tickRange; i <= SETTINGS.tickRange; i++) {
+          if (i === 0) continue;
+          let p1, p2, labelPos, labelText = String(i);
+          if (axis === 'x') {
+            p1 = new THREE.Vector3(i, 0, -0.08);
+            p2 = new THREE.Vector3(i, 0, 0.08);
+            labelPos = new THREE.Vector3(i, -0.22, 0.18);
+            // kleine Linie
+            tickGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([p1, p2]), tickMat));
+            // Label
+            tickGroup.add(makeTextSprite(labelText, '#cccccc', 48, { pos: labelPos }));
+          } else if (axis === 'y') {
+            p1 = new THREE.Vector3(0, i, -0.08);
+            p2 = new THREE.Vector3(0, i, 0.08);
+            labelPos = new THREE.Vector3(0.18, i, 0.18);
+            tickGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([p1, p2]), tickMat));
+            tickGroup.add(makeTextSprite(labelText, '#cccccc', 48, { pos: labelPos }));
+          } else if (axis === 'z') {
+            p1 = new THREE.Vector3(-0.08, 0, i);
+            p2 = new THREE.Vector3(0.08, 0, i);
+            labelPos = new THREE.Vector3(0.18, -0.22, i);
+            tickGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([p1, p2]), tickMat));
+            tickGroup.add(makeTextSprite(labelText, '#cccccc', 48, { pos: labelPos }));
+          }
+        }
+      }
+      addTicks('x'); addTicks('y'); addTicks('z');
+
+      scene.add(axisGroup);
+      scene.add(tickGroup);
+    }
+
+    // ---------- Controller Setup ----------
+    function setupControllers() {
+      const controllerModelFactory = new XRControllerModelFactory();
+
+      for (let i = 0; i < 2; i++) {
+        const controller = renderer.xr.getController(i);
+        controller.addEventListener('connected', (e) => {
+          controller.userData.inputSource = e.data; // XRInputSource
+          controller.userData.handedness = e.data.handedness; // 'left' | 'right' | 'none'
+          controller.userData.gamepad = e.data.gamepad || null;
+          controllers.any.push(controller);
+          if (e.data.handedness === 'left') controllers.left = controller;
+          if (e.data.handedness === 'right') controllers.right = controller;
+        });
+        controller.addEventListener('disconnected', () => {
+          controllers.any = controllers.any.filter(c => c !== controller);
+          if (controllers.left === controller) controllers.left = null;
+          if (controllers.right === controller) controllers.right = null;
+        });
+
+        // Trigger-Events
+        controller.addEventListener('selectstart', () => onTrigger(controller, true));
+        controller.addEventListener('selectend',   () => onTrigger(controller, false));
+
+        // Laserstrahl
+        const rayGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,-1)]);
+        const ray = new THREE.Line(rayGeo, new THREE.LineDashedMaterial({ color: 0xffffff, dashSize: 0.02, gapSize: 0.01 }));
+        ray.computeLineDistances();
+        ray.name = 'ray';
+        ray.scale.z = SETTINGS.reticleDistance;
+        controller.add(ray);
+
+        scene.add(controller);
+
+        // Griff-Modell (sichtbare Controller)
+        const grip = renderer.xr.getControllerGrip(i);
+        grip.add(controllerModelFactory.createControllerModel(grip));
+        scene.add(grip);
+      }
+    }
+
+    // ---------- UI (Buttons) ----------
+    function buildUI() {
+      uiRoot = new THREE.Group();
+      camera.add(uiRoot); // an Kamera "angeklebt" -> am Rand des Sichtfelds
+      uiRoot.position.set(0, 0, -1.2); // vor die Kamera
+      uiRoot.visible = true;
+
+      // Drei Schaltflächen vertikal
+      const buttons = [
+        { key: 'showOrtsvektoren', label: 'Ortsvektoren', color: '#66ccff' },
+        { key: 'showLineEquations', label: 'Geradengleichungen', color: '#ffd166' },
+        { key: 'snapToGrid', label: 'Rasterfang', color: '#96f97b' }
+      ];
+
+      let y = 0.25;
+      for (const b of buttons) {
+        const btn = makeUIButton(b.label, b.color);
+        btn.position.set(-0.42, y, 0);
+        btn.userData.key = b.key;
+        uiRoot.add(btn);
+        uiButtons.push(btn);
+        y -= 0.22;
+      }
+    }
+
+    function makeUIButton(text, colorHex) {
+      const w = 0.32, h = 0.12, r = 0.02;
+      const shape = new THREE.Shape();
+      const x = -w/2, y = -h/2;
+      // abgerundetes Rechteck
+      shape.moveTo(x + r, y);
+      shape.lineTo(x + w - r, y);
+      shape.quadraticCurveTo(x + w, y, x + w, y + r);
+      shape.lineTo(x + w, y + h - r);
+      shape.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      shape.lineTo(x + r, y + h);
+      shape.quadraticCurveTo(x, y + h, x, y + h - r);
+      shape.lineTo(x, y + r);
+      shape.quadraticCurveTo(x, y, x + r, y);
+
+      const geo = new THREE.ShapeGeometry(shape);
+      const mat = new THREE.MeshBasicMaterial({ color: 0x222222, transparent: true, opacity: 0.85 });
+      const mesh = new THREE.Mesh(geo, mat);
+
+      const border = new THREE.LineSegments(
+        new THREE.EdgesGeometry(geo),
+        new THREE.LineBasicMaterial({ color: new THREE.Color(colorHex).getHex(), linewidth: 2 })
+      );
+      border.position.z = 0.0001;
+      mesh.add(border);
+
+      const label = makeTextSprite(text, colorHex, 64, { maxWidth: 256 });
+      label.position.set(0, 0, 0.0002);
+      mesh.add(label);
+
+      mesh.userData.type = 'ui-button';
+      mesh.userData.baseColor = mat.color.clone();
+      mesh.userData.hover = false;
+      return mesh;
+    }
+
+    function buildHUD() {
+      hudGroup = new THREE.Group();
+      camera.add(hudGroup);
+      hudGroup.position.set(0.35, -0.22, -0.9);
+
+      hudModeText = makeTextSprite('Modus: Punkt', '#ffffff', 72, { bg: 'rgba(0,0,0,0.35)', padding: 10 });
+      hudGroup.add(hudModeText);
+    }
+
+    function updateHUD() {
+      const text =
+        `Modus: ${STATE.mode === 'point' ? 'Punktmodus' : 'Geradenmodus'}  ` +
+        `| Ortsvektoren: ${STATE.showOrtsvektoren ? 'Ein' : 'Aus'}  ` +
+        `| Gleichungen: ${STATE.showLineEquations ? 'Ein' : 'Aus'}  ` +
+        `| Rasterfang: ${STATE.snapToGrid ? 'Ein' : 'Aus'}`;
+      setTextSprite(hudModeText, text, '#ffffff');
+    }
+
+    // ---------- Hauptloop ----------
+    function tick(t, frame) {
+      // Reticle an rechten Controller koppeln (oder irgendeinen, falls rechts nicht da)
+      const ctrl = controllers.right || controllers.left || controllers.any[0] || null;
+      if (ctrl) {
+        ctrl.updateMatrixWorld();
+        const origin = new THREE.Vector3().setFromMatrixPosition(ctrl.matrixWorld);
+        const dir = new THREE.Vector3(0, 0, -1).transformDirection(ctrl.matrixWorld).normalize();
+
+        const pos = origin.clone().add(dir.multiplyScalar(SETTINGS.reticleDistance));
+        const finalPos = STATE.snapToGrid ? roundVector(pos, SETTINGS.snapStep) : pos;
+        reticle.position.copy(finalPos);
+
+        // UI Hover
+        handleUIHover(ctrl);
+      }
+
+      // Tasten: Moduswechsel über A/X (primary button)
+      handlePrimaryButtonsToggle();
+
+      // Locomotion
+      handleLocomotion(t);
+
+      renderer.render(scene, camera);
+
+      // Nach dem Rendern Labels zur Kamera drehen
+      faceCameraSprites();
+    }
+
+    function faceCameraSprites() {
+      // Alle Sprite-Materialien so ausrichten, dass sie zur Kamera zeigen
+      scene.traverse(obj => {
+        if (obj.isSprite) {
+          obj.quaternion.copy(camera.quaternion);
+        }
+      });
+    }
+
+    // ---------- Interaktionen ----------
+    function onTrigger(controller, pressed) {
+      if (!pressed) return;
+
+      // 1) UI-Buttons klickbar
+      const hitUI = raycastFromController(controller, uiButtons);
+      if (hitUI) {
+        toggleUIFlag(hitUI.object.userData.key);
+        return;
+      }
+
+      if (STATE.mode === 'point') {
+        // Punkt an Reticle
+        createPointAtReticle();
+      } else if (STATE.mode === 'line') {
+        // Punkt auswählen -> zwei Punkte => Gerade
+        const hitP = raycastFromController(controller, points.map(p => p.mesh));
+        if (hitP) {
+          const pObj = points.find(p => p.mesh === hitP.object);
+          if (!pObj) return;
+          if (!selectedForLine.includes(pObj)) {
+            selectPointForLine(pObj, true);
+          }
+          if (selectedForLine.length === 2) {
+            createLineFromSelected();
+          }
+        }
+      }
+    }
+
+    function handleUIHover(controller) {
+      const hit = raycastFromController(controller, uiButtons);
+      uiButtons.forEach(btn => {
+        const hover = hit && hit.object === btn;
+        if (hover !== btn.userData.hover) {
+          btn.userData.hover = hover;
+          const mat = btn.material;
+          mat.color.set(hover ? 0x2a2a2a : btn.userData.baseColor);
+          mat.needsUpdate = true;
+        }
+      });
+    }
+
+    function toggleUIFlag(key) {
+      if (key === 'showOrtsvektoren') {
+        STATE.showOrtsvektoren = !STATE.showOrtsvektoren;
+        updateOrtsvektorenVisibility();
+      } else if (key === 'showLineEquations') {
+        STATE.showLineEquations = !STATE.showLineEquations;
+        updateLineEquationsVisibility();
+      } else if (key === 'snapToGrid') {
+        STATE.snapToGrid = !STATE.snapToGrid;
+        gridFine.visible = STATE.snapToGrid;
+      }
+      updateHUD();
+    }
+
+    function handlePrimaryButtonsToggle() {
+      // A (right) / X (left) -> Moduswechsel
+      const pressedNow =
+        isPrimaryButtonPressed(controllers.right) ||
+        isPrimaryButtonPressed(controllers.left);
+      handleDebouncedToggle(pressedNow, () => {
+        STATE.mode = (STATE.mode === 'point') ? 'line' : 'point';
+        // Reset Auswahl im Geradenmodus-Wechsel
+        clearLineSelection();
+        updateHUD();
+      });
+    }
+
+    // Debounce
+    let lastPrimaryState = false, lastToggleTime = 0;
+    function handleDebouncedToggle(pressed, onToggle) {
+      const now = performance.now();
+      if (pressed && !lastPrimaryState && now - lastToggleTime > 250) {
+        onToggle();
+        lastToggleTime = now;
+      }
+      lastPrimaryState = pressed;
+    }
+
+    function isPrimaryButtonPressed(controller) {
+      const gp = controller?.userData?.gamepad;
+      // Index 4 ist auf Quest typischerweise A/X (primary)
+      return !!(gp && gp.buttons && gp.buttons[4] && gp.buttons[4].pressed);
+    }
+
+    function handleLocomotion(time) {
+      const dt = renderer.xr.isPresenting ? (renderer.xr.getSession()?.inputSources ? 1/72 : 1/60) : 1/60;
+
+      // Linker Stick (Bewegen)
+      const left = controllers.left;
+      if (left?.userData?.gamepad?.axes) {
+        const ax = left.userData.gamepad.axes;
+        const x = ax[0] || 0; // strafe
+        const y = ax[1] || 0; // vor/zurück
+        const speed = SETTINGS.locomotionSpeed * dt;
+
+        // Bewegungsrichtung relativ zur Yaw der Kamera
+        const yaw = getCameraYaw();
+        const forward = new THREE.Vector3(Math.sin(yaw), 0, -Math.cos(yaw));
+        const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0,1,0)).negate();
+
+        rig.position.addScaledVector(forward, -y * speed);
+        rig.position.addScaledVector(right, x * speed);
+      }
+
+      // Rechter Stick horizontal: Snap-Turn
+      const right = controllers.right;
+      if (right?.userData?.gamepad?.axes) {
+        const ax = right.userData.gamepad.axes;
+        const horiz = ax[0] || 0;
+        const now = performance.now();
+        if (Math.abs(horiz) > 0.7 && (now - lastSnapTurnTime) > SETTINGS.snapTurnCooldownMs) {
+          const angle = THREE.MathUtils.degToRad(SETTINGS.snapTurnAngleDeg) * Math.sign(horiz);
+          rig.rotateY(angle);
+          lastSnapTurnTime = now;
+        }
+      }
+    }
+
+    function getCameraYaw() {
+      // Yaw aus Kamera-Quaternion extrahieren (ignoriere Pitch/Roll)
+      const e = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
+      return e.y;
+    }
+
+    // ---------- Punkte ----------
+    function createPointAtReticle() {
+      const pos = reticle.position.clone();
+      const name = `P${nextPointIdx++}`;
+
+      const mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(SETTINGS.pointRadius, 24, 18),
+        new THREE.MeshStandardMaterial({ color: 0xff6699, metalness: 0.0, roughness: 0.4, emissive: 0x111111 })
+      );
+      mesh.position.copy(pos);
+      mesh.userData.type = 'point';
+      scene.add(mesh);
+
+      // Label: Pk(x | y | z), gerundet
+      const label = makeTextSprite(pointLabelString(name, pos), '#ffffff', 72,
+        { bg: 'rgba(0,0,0,0.5)', padding: 8 });
+      label.position.copy(pos).add(new THREE.Vector3(0.0, 0.18, 0));
+      scene.add(label);
+
+      // Ortsvektor (vom Ursprung), bei Bedarf sichtbar
+      const arrow = new THREE.ArrowHelper(
+        pos.clone().normalize(),
+        new THREE.Vector3(0,0,0),
+        pos.length(),
+        0x66ccff, 0.22, 0.12
+      );
+      arrow.visible = STATE.showOrtsvektoren;
+      scene.add(arrow);
+
+      const pObj = { name, mesh, label, pos, arrow };
+      points.push(pObj);
+    }
+
+    function pointLabelString(name, pos) {
+      const s = STATE.snapToGrid ? 1 : 2; // Anzeige: bei Snap nur 1 Nachkommastelle
+      const r = (v) => roundTo(v, STATE.snapToGrid ? SETTINGS.snapStep : Math.pow(10, -s)).toFixed(s);
+      return `${name}(${r(pos.x)} | ${r(pos.y)} | ${r(pos.z)})`;
+    }
+
+    function selectPointForLine(pObj, on) {
+      if (on) {
+        selectedForLine.push(pObj);
+        pObj.mesh.scale.setScalar(1.3);
+        pObj.mesh.material.emissive.setHex(0x333333);
+      } else {
+        pObj.mesh.scale.setScalar(1.0);
+        pObj.mesh.material.emissive.setHex(0x111111);
+        selectedForLine = selectedForLine.filter(p => p !== pObj);
+      }
+    }
+
+    function clearLineSelection() {
+      selectedForLine.forEach(p => selectPointForLine(p, false));
+      selectedForLine.length = 0;
+    }
+
+    // ---------- Geraden ----------
+    function createLineFromSelected() {
+      if (selectedForLine.length < 2) return;
+      const p1 = selectedForLine[0];
+      const p2 = selectedForLine[1];
+
+      const support = p1.pos.clone();
+      const dir = p2.pos.clone().sub(p1.pos).normalize();
+      const L = SETTINGS.worldRange * 0.9;
+
+      const c = p1.pos.clone().add(p2.pos).multiplyScalar(0.5);
+      const a = c.clone().addScaledVector(dir, -L);
+      const b = c.clone().addScaledVector(dir,  L);
+
+      const color = LINE_COLORS[lineColorIdx++ % LINE_COLORS.length];
+      const geo = new THREE.BufferGeometry().setFromPoints([a, b]);
+      const mat = new THREE.LineBasicMaterial({ color, linewidth: 2 });
+      const lineMesh = new THREE.Line(geo, mat);
+      scene.add(lineMesh);
+
+      // Richtungspfeil ab P1 (optional)
+      const dirArrow = new THREE.ArrowHelper(dir, p1.pos.clone(), 1.5, color, 0.25, 0.14);
+      scene.add(dirArrow);
+
+      // Gleichung als Text (optional ein-/ausblendbar)
+      const eq = lineEquationString(support, dir);
+      const eqLabel = makeTextSprite(eq, '#ffffff', 72, { bg: 'rgba(0,0,0,0.5)', padding: 10, color: '#' + new THREE.Color(color).getHexString() });
+      const labelPos = c.clone().add(new THREE.Vector3(0, 0.4, 0));
+      eqLabel.position.copy(labelPos);
+      eqLabel.material.color.setHex(color);
+      eqLabel.visible = STATE.showLineEquations;
+      scene.add(eqLabel);
+
+      const lineObj = {
+        id: `g${nextLineIdx++}`,
+        color,
+        p1, p2,
+        dir: dir.clone(),
+        support: support.clone(),
+        mesh: lineMesh,
+        eqLabel,
+        dirArrow
+      };
+      lines.push(lineObj);
+
+      // Auswahl zurücksetzen
+      clearLineSelection();
+
+      updateHUD();
+    }
+
+    function lineEquationString(support, dir) {
+      const r2 = (v) => roundTo(v, 0.01).toFixed(2);
+      // Darstellung: g: x = (sx / sy / sz) + t · (vx / vy / vz)
+      return `g: x = (${r2(support.x)} / ${r2(support.y)} / ${r2(support.z)}) + t · (${r2(dir.x)} / ${r2(dir.y)} / ${r2(dir.z)})`;
+    }
+
+    function updateOrtsvektorenVisibility() {
+      points.forEach(p => p.arrow.visible = STATE.showOrtsvektoren);
+    }
+
+    function updateLineEquationsVisibility() {
+      lines.forEach(g => g.eqLabel.visible = STATE.showLineEquations);
+    }
+
+    // ---------- Raycast-Helfer ----------
+    function raycastFromController(controller, targets) {
+      if (!controller) return null;
+      controller.updateMatrixWorld();
+      const origin = new THREE.Vector3().setFromMatrixPosition(controller.matrixWorld);
+      const dir = new THREE.Vector3(0,0,-1).transformDirection(controller.matrixWorld).normalize();
+
+      raycaster.set(origin, dir);
+      const hits = raycaster.intersectObjects(targets, false);
+      return hits[0] || null;
+    }
+
+    // ---------- Text/Label (Canvas → Sprite) ----------
+    function makeTextSprite(text, color = '#ffffff', fontSize = 64, opts = {}) {
+      const { bg = null, padding = 6, maxWidth = 512, pos = null } = opts;
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      ctx.font = `bold ${fontSize}px system-ui, Arial, sans-serif`;
+
+      // Zeilenumbruch, falls nötig
+      const lines = wrapText(ctx, text, maxWidth - 2 * padding);
+      const lineHeight = fontSize * 1.2;
+      canvas.width = Math.min(maxWidth, Math.max(64, ...lines.map(l => Math.ceil(ctx.measureText(l).width + 2 * padding))));
+      canvas.height = Math.ceil(lines.length * lineHeight + 2 * padding);
+
+      // HiDPI-Glättung
+      const scale = 2;
+      canvas.width *= scale; canvas.height *= scale;
+      ctx.scale(scale, scale);
+      ctx.font = `bold ${fontSize}px system-ui, Arial, sans-serif`;
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = color;
+      ctx.lineJoin = 'round';
+
+      if (bg) {
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, canvas.width / scale, canvas.height / scale);
+        ctx.fillStyle = color;
+      }
+
+      let y = padding;
+      for (const line of lines) {
+        ctx.fillText(line, padding, y);
+        y += lineHeight;
+      }
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.minFilter = THREE.LinearFilter;
+      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+      const sprite = new THREE.Sprite(mat);
+
+      // Größe in der Welt
+      const worldHeight = 0.14 + 0.04 * (lines.length - 1);
+      const aspect = (canvas.width / scale) / (canvas.height / scale);
+      sprite.scale.set(worldHeight * aspect, worldHeight, 1);
+
+      if (pos) sprite.position.copy(pos);
+      sprite.userData.isLabel = true;
+      return sprite;
+    }
+
+    function setTextSprite(sprite, text, color = '#ffffff') {
+      const mat = sprite.material;
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const fontSize = 64;
+      const padding = 6, maxWidth = 512;
+
+      ctx.font = `bold ${fontSize}px system-ui, Arial, sans-serif`;
+      const lines = wrapText(ctx, text, maxWidth - 2 * padding);
+      const lineHeight = fontSize * 1.2;
+      canvas.width = Math.min(maxWidth, Math.max(64, ...lines.map(l => Math.ceil(ctx.measureText(l).width + 2 * padding))));
+      canvas.height = Math.ceil(lines.length * lineHeight + 2 * padding);
+
+      const scale = 2;
+      canvas.width *= scale; canvas.height *= scale;
+      ctx.scale(scale, scale);
+      ctx.font = `bold ${fontSize}px system-ui, Arial, sans-serif`;
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = color;
+
+      let y = padding;
+      for (const line of lines) {
+        ctx.fillText(line, padding, y);
+        y += lineHeight;
+      }
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.minFilter = THREE.LinearFilter;
+      mat.map = tex;
+      mat.needsUpdate = true;
+
+      const worldHeight = 0.14 + 0.04 * (lines.length - 1);
+      const aspect = (canvas.width / scale) / (canvas.height / scale);
+      sprite.scale.set(worldHeight * aspect, worldHeight, 1);
+    }
+
+    function wrapText(ctx, text, maxWidth) {
+      const words = text.split(' ');
+      const lines = [];
+      let line = '';
+      for (const w of words) {
+        const test = line ? `${line} ${w}` : w;
+        if (ctx.measureText(test).width <= maxWidth) {
+          line = test;
+        } else {
+          if (line) lines.push(line);
+          line = w;
+        }
+      }
+      if (line) lines.push(line);
+      return lines;
+    }
+
+    // ---------- Mathe-Helfer ----------
+    function roundTo(val, step) {
+      const inv = 1 / step;
+      return Math.round(val * inv) / inv;
+    }
+    function roundVector(v, step) {
+      return new THREE.Vector3(roundTo(v.x, step), roundTo(v.y, step), roundTo(v.z, step));
+    }
+
+    // ---------- Resize ----------
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+  </script>
+</body>
+</html>
