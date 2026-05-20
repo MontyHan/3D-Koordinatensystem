@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VR 3D Koordinatensystem</title>
+
+<script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+
+<style>
+body {
+    margin: 0;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+}
+
+#info {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    color: white;
+    background: rgba(0,0,0,0.7);
+    padding: 15px;
+    border-radius: 8px;
+    font-size: 14px;
+    z-index: 1000;
+    max-width: 320px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="info">
+<h3>Analytische Geometrie - VR</h3>
+<ul>
+<li>Trigger: Punkt</li>
+<li>Grip: löschen</li>
+<li>A/X: Linie</li>
+<li>B/Y: Vektoren</li>
+<li>Thumbstick: Gleichungen</li>
+<li>Cursor = magnetisch (0.5 Raster)</li>
+</ul>
+</div>
+
+<a-scene>
+
+<!-- Rig -->
+<a-entity id="rig" position="0 1.6 4">
+    <a-camera></a-camera>
+
+    <a-entity id="rightHand"
+        laser-controls="hand: right"
+        raycaster="objects: .interactive"
+        line="color: cyan; opacity: 0.8">
+    </a-entity>
+
+    <a-entity id="leftHand"
+        laser-controls="hand: left"
+        raycaster="objects: .interactive"
+        line="color: magenta; opacity: 0.8">
+    </a-entity>
+</a-entity>
+
+<!-- Magnet Cursor -->
+<a-sphere id="cursor"
+    radius="0.04"
+    color="#00ff00"
+    visible="false">
+</a-sphere>
+
+<!-- Koordinatensystem -->
+<a-cylinder position="2.5 0 0" rotation="0 0 90" radius="0.01" height="5" color="#ff0000"></a-cylinder>
+<a-cylinder position="0 2.5 0" radius="0.01" height="5" color="#00ff00"></a-cylinder>
+<a-cylinder position="0 0 2.5" rotation="90 0 0" radius="0.01" height="5" color="#0000ff"></a-cylinder>
+
+<!-- Boden -->
+<a-plane class="interactive"
+    position="0 0 0"
+    rotation="-90 0 0"
+    width="10"
+    height="10"
+    color="#333333"
+    opacity="0.6">
+</a-plane>
+
+<!-- Grid Linien -->
+<a-entity id="grid">
+    <a-cylinder position="0 0 -4" rotation="0 90 90" radius="0.005" height="10" color="#555"></a-cylinder>
+    <a-cylinder position="0 0 -3" rotation="0 90 90" radius="0.005" height="10" color="#555"></a-cylinder>
+    <a-cylinder position="0 0 -2" rotation="0 90 90" radius="0.005" height="10" color="#555"></a-cylinder>
+    <a-cylinder position="0 0 -1" rotation="0 90 90" radius="0.005" height="10" color="#555"></a-cylinder>
+    <a-cylinder position="0 0 1" rotation="0 90 90" radius="0.005" height="10" color="#555"></a-cylinder>
+    <a-cylinder position="0 0 2" rotation="0 90 90" radius="0.005" height="10" color="#555"></a-cylinder>
+    <a-cylinder position="0 0 3" rotation="0 90 90" radius="0.005" height="10" color="#555"></a-cylinder>
+</a-entity>
+
+<!-- Container -->
+<a-entity id="points-container"></a-entity>
+<a-entity id="lines-container"></a-entity>
+<a-entity id="vectors-container"></a-entity>
+<a-entity id="equations-container"></a-entity>
+
+<a-sky color="#222"></a-sky>
+
+</a-scene>
+
+<script>
+
+// =========================
+// GLOBAL STATE
+// =========================
+let points = [];
+let lines = [];
+let lineMode = false;
+let firstPoint = null;
+
+let showVectors = false;
+let showEquations = false;
+
+let pointId = 0;
+let lineId = 0;
+
+const cursor = document.getElementById("cursor");
+
+const pointsContainer = document.getElementById("points-container");
+const linesContainer = document.getElementById("lines-container");
+const vectorsContainer = document.getElementById("vectors-container");
+const equationsContainer = document.getElementById("equations-container");
+
+// =========================
+// SNAP
+// =========================
+function snap(v) {
+    return Math.round(v * 2) / 2;
+}
+
+// =========================
+// MAGNET CURSOR (IMPORTANT FIX)
+// =========================
+AFRAME.registerComponent('cursor-update', {
+
+    tick: function () {
+
+        const hand = document.querySelector('#rightHand');
+
+        if (!hand || !hand.components.raycaster) return;
+
+        const hits = hand.components.raycaster.intersections;
+
+        if (!hits || hits.length === 0) {
+            cursor.setAttribute('visible', false);
+            return;
+        }
+
+        const p = hits[0].point;
+
+        const x = snap(p.x);
+        const y = snap(p.y);
+        const z = snap(p.z);
+
+        cursor.setAttribute('visible', true);
+        cursor.setAttribute('position', `${x} ${y} ${z}`);
+
+        cursor.snap = { x, y, z };
+    }
+});
+
+document.querySelector("a-scene")
+    .setAttribute("cursor-update", "");
+
+// =========================
+// POINT
+// =========================
+function createPoint(x, y, z) {
+
+    const el = document.createElement("a-sphere");
+
+    el.setAttribute("position", `${x} ${y} ${z}`);
+    el.setAttribute("radius", "0.05");
+    el.setAttribute("color", "#ffff00");
+    el.classList.add("interactive");
+
+    const label = document.createElement("a-text");
+    label.setAttribute("value", `(${x}|${y}|${z})`);
+    label.setAttribute("position", "0 0.12 0");
+    label.setAttribute("align", "center");
+    label.setAttribute("scale", "0.25 0.25 0.25");
+    label.setAttribute("look-at", "[camera]");
+
+    el.appendChild(label);
+
+    pointsContainer.appendChild(el);
+
+    points.push({
+        id: "p" + pointId++,
+        el,
+        x, y, z
+    });
+}
+
+// =========================
+// LINE (unendlich simuliert)
+// =========================
+function createLine(a, b) {
+
+    const dir = new THREE.Vector3(
+        b.x - a.x,
+        b.y - a.y,
+        b.z - a.z
+    );
+
+    const length = 50;
+
+    const mid = {
+        x: (a.x + b.x) / 2,
+        y: (a.y + b.y) / 2,
+        z: (a.z + b.z) / 2
+    };
+
+    const line = document.createElement("a-cylinder");
+
+    line.setAttribute("position", `${mid.x} ${mid.y} ${mid.z}`);
+    line.setAttribute("radius", "0.015");
+    line.setAttribute("height", length);
+    line.setAttribute("color", "#00ffff");
+    line.setAttribute("opacity", "0.6");
+
+    line.object3D.quaternion.setFromUnitVectors(
+        new THREE.Vector3(0, 1, 0),
+        dir.clone().normalize()
+    );
+
+    linesContainer.appendChild(line);
+
+    lines.push({ a, b, dir });
+
+    createEquation(a, dir);
+}
+
+// =========================
+// GERADENGL. (SPALTENVEKTOREN)
+// =========================
+function createEquation(a, dir) {
+
+    const eq = document.createElement("a-text");
+
+    eq.setAttribute("value",
+`g: x =
+⎛${a.x.toFixed(1)}⎞
+⎜${a.y.toFixed(1)}⎟
+⎝${a.z.toFixed(1)}⎠
++ t ·
+⎛${dir.x.toFixed(2)}⎞
+⎜${dir.y.toFixed(2)}⎟
+⎝${dir.z.toFixed(2)}⎠`
+    );
+
+    eq.setAttribute("position", `${a.x} ${a.y + 0.4} ${a.z}`);
+    eq.setAttribute("align", "center");
+    eq.setAttribute("color", "#00ffff");
+    eq.setAttribute("scale", "0.2 0.2 0.2");
+    eq.setAttribute("look-at", "[camera]");
+
+    equationsContainer.appendChild(eq);
+}
+
+// =========================
+// INPUT (TEST)
+// =========================
+window.addEventListener("keydown", (e) => {
+
+    const c = cursor.snap;
+    if (!c) return;
+
+    if (e.key === " ") {
+        createPoint(c.x, c.y, c.z);
+    }
+
+});
+
+</script>
+
+</body>
+</html>
