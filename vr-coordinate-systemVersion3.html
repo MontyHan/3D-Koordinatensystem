@@ -34,19 +34,19 @@
     <a-cylinder rotation="0 0 90" radius="0.008" height="14" color="#ff3333" opacity="0.9"></a-cylinder>
     <a-cone position="7 0 0"  rotation="0 0 -90" radius-bottom="0.05" radius-top="0" height="0.2" color="#ff3333"></a-cone>
     <a-cone position="-7 0 0" rotation="0 0  90" radius-bottom="0.05" radius-top="0" height="0.2" color="#ff3333"></a-cone>
-    <a-text value="x" position="7.4 0.2 0" color="#ff5555" scale="0.7 0.7 0.7" align="center"></a-text>
+    <a-text value="x" position="7.4 0.2 0" color="#ff5555" scale="1.2 1.2 1.2" align="center"></a-text>
  
     <!-- Y-Achse grün -->
     <a-cylinder rotation="0 0 0" radius="0.008" height="14" color="#33ff33" opacity="0.9"></a-cylinder>
     <a-cone position="0  7 0" rotation="0 0   0" radius-bottom="0.05" radius-top="0" height="0.2" color="#33ff33"></a-cone>
     <a-cone position="0 -7 0" rotation="180 0 0" radius-bottom="0.05" radius-top="0" height="0.2" color="#33ff33"></a-cone>
-    <a-text value="y" position="0.25 7.4 0" color="#55ff55" scale="0.7 0.7 0.7" align="center"></a-text>
+    <a-text value="y" position="0.25 7.4 0" color="#55ff55" scale="1.2 1.2 1.2" align="center"></a-text>
  
     <!-- Z-Achse blau -->
     <a-cylinder rotation="90 0 0" radius="0.008" height="14" color="#3399ff" opacity="0.9"></a-cylinder>
     <a-cone position="0 0  7" rotation=" 90 0 0" radius-bottom="0.05" radius-top="0" height="0.2" color="#3399ff"></a-cone>
     <a-cone position="0 0 -7" rotation="-90 0 0" radius-bottom="0.05" radius-top="0" height="0.2" color="#3399ff"></a-cone>
-    <a-text value="z" position="0.25 0.2 7.4" color="#55aaff" scale="0.7 0.7 0.7" align="center"></a-text>
+    <a-text value="z" position="0.25 0.2 7.4" color="#55aaff" scale="1.2 1.2 1.2" align="center"></a-text>
  
     <!-- Achsenbeschriftungen & Gitter (werden per JS gebaut) -->
     <a-entity id="axis-labels"></a-entity>
@@ -69,52 +69,94 @@
     </a-box>
  
     <!-- ===== WERKZEUG-PANEL ===== -->
-    <a-entity id="ui-panel" position="4 2.5 0">
-        <a-plane width="1.8" height="4.0" color="#111122" opacity="0.9" position="0 0 -0.01"></a-plane>
-        <a-text value="Werkzeuge" position="-0.7 1.82 0" scale="0.19 0.19 0.19" color="#aaaaff" align="left"></a-text>
- 
-        <a-entity id="btn-addpoint" class="clickable" position="0 1.35 0"
-                  geometry="primitive:box;width:1.6;height:0.42;depth:0.08"
-                  material="color:#55bb55;roughness:0.3">
-            <a-text value="+ Punkt setzen" align="center" color="#ccffcc" position="0 0 0.05" scale="0.5 0.5 0.5"></a-text>
-        </a-entity>
- 
-        <a-entity id="btn-delpoint" class="clickable" position="0 0.83 0"
-                  geometry="primitive:box;width:1.6;height:0.42;depth:0.08"
-                  material="color:#662222;roughness:0.3">
-            <a-text value="- Punkt löschen" align="center" color="#ffcccc" position="0 0 0.05" scale="0.5 0.5 0.5"></a-text>
-        </a-entity>
- 
-        <a-entity id="btn-line" class="clickable" position="0 0.31 0"
-                  geometry="primitive:box;width:1.6;height:0.42;depth:0.08"
-                  material="color:#224466;roughness:0.3">
-            <a-text value="Gerade zeichnen" align="center" color="#aaddff" position="0 0 0.05" scale="0.5 0.5 0.5"></a-text>
-        </a-entity>
- 
-        <a-entity id="btn-delline" class="clickable" position="0 -0.21 0"
-                  geometry="primitive:box;width:1.6;height:0.42;depth:0.08"
-                  material="color:#442255;roughness:0.3">
-            <a-text value="- Gerade löschen" align="center" color="#ddbbff" position="0 0 0.05" scale="0.5 0.5 0.5"></a-text>
-        </a-entity>
- 
-        <a-entity id="btn-vectors" class="clickable" position="0 -0.75 0"
-                  geometry="primitive:box;width:1.6;height:0.42;depth:0.08"
-                  material="color:#1a1a2e;roughness:0.3">
-            <a-text id="lbl-vectors" value="Ortsvektoren: AUS" align="center" color="#ffaaff" position="0 0 0.05" scale="0.44 0.44 0.44"></a-text>
-        </a-entity>
- 
-        <a-entity id="btn-equations" class="clickable" position="0 -1.29 0"
-                  geometry="primitive:box;width:1.6;height:0.42;depth:0.08"
-                  material="color:#1a1a2e;roughness:0.3">
-            <a-text id="lbl-equations" value="Gleichungen: AUS" align="center" color="#aaffff" position="0 0 0.05" scale="0.44 0.44 0.44"></a-text>
-        </a-entity>
- 
-        <a-text id="status-text" value="Modus: Punkt setzen"
-                position="-0.7 -1.76 0"
-                scale="0.155 0.155 0.155" color="#dddddd" align="left" wrap-count="26">
+    <!-- ===== NEUES VR-UI ===== -->
+<a-entity id="ui-panel"
+          position="4 2.2 0"
+          look-at="[camera]">
+
+    <!-- Hintergrund -->
+    <a-plane width="2.8"
+             height="5.8"
+             color="#111122"
+             opacity="0.94"
+             position="0 0 -0.02">
+    </a-plane>
+
+    <!-- Titel -->
+    <a-text value="Analytische Geometrie"
+            position="0 2.45 0"
+            align="center"
+            color="#ffffff"
+            scale="0.42 0.42 0.42">
+    </a-text>
+
+    <!-- ===== WERKZEUGE ===== -->
+
+    <a-text value="Werkzeuge"
+            position="-1.1 1.95 0"
+            color="#88aaff"
+            scale="0.30 0.30 0.30">
+    </a-text>
+
+    <!-- Punkt setzen -->
+    <a-entity id="btn-addpoint"
+              class="clickable"
+              position="0 1.45 0"
+              geometry="primitive:box;width:2.2;height:0.5;depth:0.08"
+              material="color:#55bb55">
+
+        <a-text value="+ Punkt setzen"
+                align="center"
+                color="#ffffff"
+                position="0 0 0.05"
+                scale="0.55 0.55 0.55">
         </a-text>
     </a-entity>
- 
+
+    <!-- Gerade -->
+    <a-entity id="btn-line"
+              class="clickable"
+              position="0 0.8 0"
+              geometry="primitive:box;width:2.2;height:0.5;depth:0.08"
+              material="color:#3366aa">
+
+        <a-text value="Gerade zeichnen"
+                align="center"
+                color="#ffffff"
+                position="0 0 0.05"
+                scale="0.52 0.52 0.52">
+        </a-text>
+    </a-entity>
+
+    <!-- Löschen -->
+    <a-entity id="btn-delpoint"
+              class="clickable"
+              position="0 0.15 0"
+              geometry="primitive:box;width:2.2;height:0.5;depth:0.08"
+              material="color:#aa3333">
+
+        <a-text value="Punkt löschen"
+                align="center"
+                color="#ffffff"
+                position="0 0 0.05"
+                scale="0.52 0.52 0.52">
+        </a-text>
+    </a-entity>
+</a-entity>
+
+<!-- ===== VR ZAHLENBLOCK ===== -->
+<a-entity id="numpad"
+          position="1.2 1.5 0"
+          look-at="[camera]">
+
+    <a-plane width="2.2"
+             height="3.2"
+             color="#111111"
+             opacity="0.92">
+    </a-plane>
+
+</a-entity>
+    
     <!-- ===== OBJEKT-CONTAINER ===== -->
     <a-entity id="points-container"></a-entity>
     <a-entity id="lines-container"></a-entity>
@@ -129,6 +171,13 @@
 <script>
 // ===== ZUSTAND =====
 const state = {
+    activeInput: 'x',
+    coordInput: {
+       x: '0',
+       y: '0',
+       z: '0'
+       },
+    nextPointName: 0,
     mode: 'addpoint',
     showVectors: false,
     showEquations: false,
@@ -232,6 +281,8 @@ function createPoint(x, y, z) {
     if (state.points.find(p => p.pos.x===x && p.pos.y===y && p.pos.z===z)) return null;
  
     const id = 'pt-' + (state.pc++);
+    const pointName = String.fromCharCode(65 + state.nextPointName);
+    state.nextPointName++;
     const el = document.createElement('a-sphere');
     el.setAttribute('id', id);
     el.setAttribute('class', 'point clickable');
@@ -242,7 +293,7 @@ function createPoint(x, y, z) {
     el.setAttribute('metalness', '0.4');
  
     const lbl = document.createElement('a-text');
-    lbl.setAttribute('value', `P(${fmt(x)}|${fmt(y)}|${fmt(z)})`);
+    lbl.setAttribute('value', `${pointName}(${fmt(x)}|${fmt(y)}|${fmt(z)})`);
     lbl.setAttribute('position', '0 0.17 0');
     lbl.setAttribute('align', 'center');
     lbl.setAttribute('color', '#ffffff');
@@ -434,12 +485,28 @@ function setStatus() {
     };
     el.setAttribute('value', 'Modus:\n' + (map[state.mode] || state.mode));
 }
+<!Ergänzte Funktionen von ChatGPT>
+    function updateCoordUI() {
+    document.getElementById('txt-x').setAttribute('value', state.coordInput.x);
+    document.getElementById('txt-y').setAttribute('value', state.coordInput.y);
+    document.getElementById('txt-z').setAttribute('value', state.coordInput.z);
+}
+
+function createCoordinatePoint() {
+    const x = parseInt(state.coordInput.x || '0');
+    const y = parseInt(state.coordInput.y || '0');
+    const z = parseInt(state.coordInput.z || '0');
+
+    createPoint(x, y, z);
+}
+    
  
 // ===== BUTTON-EVENTS =====
 document.getElementById('btn-addpoint').addEventListener('click', () => activateMode('btn-addpoint'));
 document.getElementById('btn-delpoint').addEventListener('click', () => activateMode('btn-delpoint'));
 document.getElementById('btn-line').addEventListener('click',     () => activateMode('btn-line'));
 document.getElementById('btn-delline').addEventListener('click',  () => activateMode('btn-delline'));
+document.getElementById('btn-create-coord').addEventListener('click', createCoordinatePoint);    
  
 document.getElementById('btn-vectors').addEventListener('click', () => {
     state.showVectors = !state.showVectors;
@@ -454,13 +521,85 @@ document.getElementById('btn-equations').addEventListener('click', () => {
     document.getElementById('btn-equations').setAttribute('material', `color:${state.showEquations?'#225555':'#1a1a2e'};roughness:0.3`);
     redrawAllEquations();
 });
+   
+    <!Unklar, ob der nächste Block hier richtig ist, der sollte unter die anderen Events
+    ['x','y','z'].forEach(axis => {
+        document.getElementById('field-' + axis).addEventListener('click', () => {
+        state.activeInput = axis;
+    });
+});
  
 // ===== SZENE GELADEN =====
 const scene = document.querySelector('a-scene');
 scene.addEventListener('loaded', () => {
     buildGrid();
     activateMode('btn-addpoint');
- 
+
+    <!Unklar, ob diese Position für den Code die richtige ist
+    const numpad = document.getElementById('numpad');
+
+const keys = [
+    '7','8','9',
+    '4','5','6',
+    '1','2','3',
+    '-','0','←'
+];
+
+keys.forEach((k, i) => {
+
+    const row = Math.floor(i / 3);
+    const col = i % 3;
+
+    const btn = document.createElement('a-entity');
+
+    btn.setAttribute('class', 'clickable');
+    btn.setAttribute(
+        'position',
+        `${-0.6 + col*0.6} ${0.8 - row*0.6} 0.02`
+    );
+
+    btn.setAttribute(
+        'geometry',
+        'primitive:box;width:0.42;height:0.42;depth:0.06'
+    );
+
+    btn.setAttribute('material', 'color:#333344');
+
+    const txt = document.createElement('a-text');
+    txt.setAttribute('value', k);
+    txt.setAttribute('align', 'center');
+    txt.setAttribute('color', '#ffffff');
+    txt.setAttribute('position', '0 0 0.04');
+    txt.setAttribute('scale', '0.45 0.45 0.45');
+
+    btn.appendChild(txt);
+
+    btn.addEventListener('click', () => {
+
+        let val = state.coordInput[state.activeInput];
+
+        if (k === '←') {
+            val = val.slice(0, -1);
+            if (val === '') val = '0';
+        }
+        else if (k === '-') {
+            val = val.startsWith('-')
+                ? val.substring(1)
+                : '-' + val;
+        }
+        else {
+            val = (val === '0') ? k : val + k;
+        }
+
+        state.coordInput[state.activeInput] = val;
+
+        updateCoordUI();
+    });
+
+    numpad.appendChild(btn);
+});
+    <!Ende des NumPads
+    
     const rightHand = document.getElementById('rightHand');
     const preview   = document.getElementById('snap-preview');
  
