@@ -8,119 +8,124 @@
 </head>
 <body>
 <a-scene>
-
-    <!-- Kamera + Controller -->
-    <a-entity id="rig" position="0 0 5" movement-controls="speed:0.05; fly:false; controls:gamepad">
-        <a-camera look-controls></a-camera>
-
+ 
+    <!-- ===== KAMERA + CONTROLLER ===== -->
+    <a-entity id="rig" position="0 1.6 6">
+        <a-camera look-controls wasd-controls="enabled:false"></a-camera>
+ 
+        <!-- Rechter Controller: Punkte setzen, Menü bedienen -->
         <a-entity id="rightHand"
                   laser-controls="hand:right"
-                  raycaster="objects:.clickable,.point,.line-el; far:20; showLine:true"
-                  line="color:#00ffff;opacity:0.6">
+                  raycaster="objects:.clickable; far:30; showLine:true"
+                  line="color:#00ffff;opacity:0.8">
         </a-entity>
-
+ 
+        <!-- Linker Controller: Teleport -->
         <a-entity id="leftHand"
                   laser-controls="hand:left"
-                  raycaster="objects:.clickable,.point,.line-el; far:20; showLine:true"
-                  line="color:#ff88ff;opacity:0.6">
+                  raycaster="objects:.teleport-target; far:30; showLine:true"
+                  line="color:#88ff88;opacity:0.8"
+                  blink-controls="cameraRig:#rig; teleportOriginEl:#leftHand; button:trigger; collisionEntities:.teleport-target">
         </a-entity>
     </a-entity>
-
+ 
     <!-- ===== KOORDINATENSYSTEM ===== -->
-    <a-cylinder position="0 0 0" rotation="0 0 90" radius="0.008" height="12" color="#ff3333"></a-cylinder>
-    <a-cone position="6 0 0"  rotation="0 0 -90" radius-bottom="0.04" radius-top="0" height="0.18" color="#ff3333"></a-cone>
-    <a-cone position="-6 0 0" rotation="0 0 90"  radius-bottom="0.04" radius-top="0" height="0.18" color="#ff3333"></a-cone>
-    <a-text value="x" position="6.5 0.15 0" color="#ff5555" scale="0.55 0.55 0.55" align="center"></a-text>
-
-    <a-cylinder position="0 0 0" rotation="0 0 0"   radius="0.008" height="12" color="#33ff33"></a-cylinder>
-    <a-cone position="0 6 0"  rotation="0 0 0"   radius-bottom="0.04" radius-top="0" height="0.18" color="#33ff33"></a-cone>
-    <a-cone position="0 -6 0" rotation="180 0 0" radius-bottom="0.04" radius-top="0" height="0.18" color="#33ff33"></a-cone>
-    <a-text value="y" position="0.2 6.5 0"  color="#55ff55" scale="0.55 0.55 0.55" align="center"></a-text>
-
-    <a-cylinder position="0 0 0" rotation="90 0 0"  radius="0.008" height="12" color="#3399ff"></a-cylinder>
-    <a-cone position="0 0 6"  rotation="90 0 0"  radius-bottom="0.04" radius-top="0" height="0.18" color="#3399ff"></a-cone>
-    <a-cone position="0 0 -6" rotation="-90 0 0" radius-bottom="0.04" radius-top="0" height="0.18" color="#3399ff"></a-cone>
-    <a-text value="z" position="0.2 0.15 6.5" color="#55aaff" scale="0.55 0.55 0.55" align="center"></a-text>
-
+    <!-- X-Achse rot -->
+    <a-cylinder rotation="0 0 90" radius="0.008" height="14" color="#ff3333" opacity="0.9"></a-cylinder>
+    <a-cone position="7 0 0"  rotation="0 0 -90" radius-bottom="0.05" radius-top="0" height="0.2" color="#ff3333"></a-cone>
+    <a-cone position="-7 0 0" rotation="0 0  90" radius-bottom="0.05" radius-top="0" height="0.2" color="#ff3333"></a-cone>
+    <a-text value="x" position="7.4 0.2 0" color="#ff5555" scale="0.7 0.7 0.7" align="center"></a-text>
+ 
+    <!-- Y-Achse grün -->
+    <a-cylinder rotation="0 0 0" radius="0.008" height="14" color="#33ff33" opacity="0.9"></a-cylinder>
+    <a-cone position="0  7 0" rotation="0 0   0" radius-bottom="0.05" radius-top="0" height="0.2" color="#33ff33"></a-cone>
+    <a-cone position="0 -7 0" rotation="180 0 0" radius-bottom="0.05" radius-top="0" height="0.2" color="#33ff33"></a-cone>
+    <a-text value="y" position="0.25 7.4 0" color="#55ff55" scale="0.7 0.7 0.7" align="center"></a-text>
+ 
+    <!-- Z-Achse blau -->
+    <a-cylinder rotation="90 0 0" radius="0.008" height="14" color="#3399ff" opacity="0.9"></a-cylinder>
+    <a-cone position="0 0  7" rotation=" 90 0 0" radius-bottom="0.05" radius-top="0" height="0.2" color="#3399ff"></a-cone>
+    <a-cone position="0 0 -7" rotation="-90 0 0" radius-bottom="0.05" radius-top="0" height="0.2" color="#3399ff"></a-cone>
+    <a-text value="z" position="0.25 0.2 7.4" color="#55aaff" scale="0.7 0.7 0.7" align="center"></a-text>
+ 
+    <!-- Achsenbeschriftungen & Gitter (werden per JS gebaut) -->
     <a-entity id="axis-labels"></a-entity>
-    <a-entity id="grid-xz"></a-entity>
-
+    <a-entity id="grid"></a-entity>
+ 
+    <!-- Teleport-Boden (groß, unsichtbar, aber begehbar) -->
+    <a-plane class="teleport-target"
+             position="0 0 0" rotation="-90 0 0"
+             width="40" height="40"
+             material="color:#ffffff;opacity:0;transparent:true">
+    </a-plane>
+ 
+    <!-- ===== CURSOR-RASTERPUNKT-VORSCHAU ===== -->
+    <!-- Kleiner weißer Würfel zeigt an, wo der nächste Punkt gesetzt wird -->
+    <a-box id="snap-preview"
+           width="0.12" height="0.12" depth="0.12"
+           color="#ffffff" opacity="0.6"
+           material="wireframe:true"
+           visible="false">
+    </a-box>
+ 
     <!-- ===== WERKZEUG-PANEL ===== -->
-    <a-entity id="ui-panel" position="3.5 2.2 0">
-        <a-plane width="1.75" height="3.8" color="#111122" opacity="0.88" position="0 0 -0.01"></a-plane>
-        <a-text value="Werkzeuge" position="-0.65 1.72 0" scale="0.18 0.18 0.18" color="#aaaaff" align="left"></a-text>
-
-        <!-- Punkt setzen -->
-        <a-entity id="btn-addpoint"
-                  class="clickable"
-                  position="0 1.28 0"
-                  geometry="primitive:box;width:1.55;height:0.40;depth:0.07"
-                  material="color:#337733;roughness:0.3">
+    <a-entity id="ui-panel" position="4 2.5 0">
+        <a-plane width="1.8" height="4.0" color="#111122" opacity="0.9" position="0 0 -0.01"></a-plane>
+        <a-text value="Werkzeuge" position="-0.7 1.82 0" scale="0.19 0.19 0.19" color="#aaaaff" align="left"></a-text>
+ 
+        <a-entity id="btn-addpoint" class="clickable" position="0 1.35 0"
+                  geometry="primitive:box;width:1.6;height:0.42;depth:0.08"
+                  material="color:#55bb55;roughness:0.3">
             <a-text value="+ Punkt setzen" align="center" color="#ccffcc" position="0 0 0.05" scale="0.5 0.5 0.5"></a-text>
         </a-entity>
-
-        <!-- Punkt löschen -->
-        <a-entity id="btn-delpoint"
-                  class="clickable"
-                  position="0 0.78 0"
-                  geometry="primitive:box;width:1.55;height:0.40;depth:0.07"
+ 
+        <a-entity id="btn-delpoint" class="clickable" position="0 0.83 0"
+                  geometry="primitive:box;width:1.6;height:0.42;depth:0.08"
                   material="color:#662222;roughness:0.3">
             <a-text value="- Punkt löschen" align="center" color="#ffcccc" position="0 0 0.05" scale="0.5 0.5 0.5"></a-text>
         </a-entity>
-
-        <!-- Gerade zeichnen -->
-        <a-entity id="btn-line"
-                  class="clickable"
-                  position="0 0.28 0"
-                  geometry="primitive:box;width:1.55;height:0.40;depth:0.07"
+ 
+        <a-entity id="btn-line" class="clickable" position="0 0.31 0"
+                  geometry="primitive:box;width:1.6;height:0.42;depth:0.08"
                   material="color:#224466;roughness:0.3">
             <a-text value="Gerade zeichnen" align="center" color="#aaddff" position="0 0 0.05" scale="0.5 0.5 0.5"></a-text>
         </a-entity>
-
-        <!-- Gerade löschen -->
-        <a-entity id="btn-delline"
-                  class="clickable"
-                  position="0 -0.22 0"
-                  geometry="primitive:box;width:1.55;height:0.40;depth:0.07"
+ 
+        <a-entity id="btn-delline" class="clickable" position="0 -0.21 0"
+                  geometry="primitive:box;width:1.6;height:0.42;depth:0.08"
                   material="color:#442255;roughness:0.3">
             <a-text value="- Gerade löschen" align="center" color="#ddbbff" position="0 0 0.05" scale="0.5 0.5 0.5"></a-text>
         </a-entity>
-
-        <!-- Ortsvektoren -->
-        <a-entity id="btn-vectors"
-                  class="clickable"
-                  position="0 -0.74 0"
-                  geometry="primitive:box;width:1.55;height:0.40;depth:0.07"
+ 
+        <a-entity id="btn-vectors" class="clickable" position="0 -0.75 0"
+                  geometry="primitive:box;width:1.6;height:0.42;depth:0.08"
                   material="color:#1a1a2e;roughness:0.3">
             <a-text id="lbl-vectors" value="Ortsvektoren: AUS" align="center" color="#ffaaff" position="0 0 0.05" scale="0.44 0.44 0.44"></a-text>
         </a-entity>
-
-        <!-- Gleichungen -->
-        <a-entity id="btn-equations"
-                  class="clickable"
-                  position="0 -1.26 0"
-                  geometry="primitive:box;width:1.55;height:0.40;depth:0.07"
+ 
+        <a-entity id="btn-equations" class="clickable" position="0 -1.29 0"
+                  geometry="primitive:box;width:1.6;height:0.42;depth:0.08"
                   material="color:#1a1a2e;roughness:0.3">
             <a-text id="lbl-equations" value="Gleichungen: AUS" align="center" color="#aaffff" position="0 0 0.05" scale="0.44 0.44 0.44"></a-text>
         </a-entity>
-
-        <!-- Status -->
+ 
         <a-text id="status-text" value="Modus: Punkt setzen"
-                position="-0.68 -1.72 0"
-                scale="0.155 0.155 0.155" color="#dddddd" align="left" wrap-count="26"></a-text>
+                position="-0.7 -1.76 0"
+                scale="0.155 0.155 0.155" color="#dddddd" align="left" wrap-count="26">
+        </a-text>
     </a-entity>
-
-    <!-- Container für Objekte -->
+ 
+    <!-- ===== OBJEKT-CONTAINER ===== -->
     <a-entity id="points-container"></a-entity>
     <a-entity id="lines-container"></a-entity>
     <a-entity id="vectors-container"></a-entity>
     <a-entity id="equations-container"></a-entity>
-
+ 
     <a-light type="ambient" color="#cccccc" intensity="0.8"></a-light>
     <a-light type="directional" position="3 6 4" intensity="0.5"></a-light>
     <a-sky color="#0a0a1a"></a-sky>
 </a-scene>
-
+ 
 <script>
 // ===== ZUSTAND =====
 const state = {
@@ -131,87 +136,127 @@ const state = {
     dragging: null,
     points: [],
     lines: [],
-    pc: 0,
-    lc: 0
+    pc: 0, lc: 0
 };
-
-function snap(v) { return Math.round(v * 2) / 2; }
-function fmt(v)  { return (v % 1 === 0) ? v.toFixed(0) : v.toFixed(1); }
+ 
+function snap(v)  { return Math.round(v); }           // ganzzahlige Rasterpunkte
+function fmt(v)   { return v.toFixed(0); }
 function colVec(x, y, z) { return `(${fmt(x)}\n ${fmt(y)}\n ${fmt(z)})`; }
-
-// ===== GRID =====
+ 
+// ===== GITTER & BESCHRIFTUNG =====
 function buildGrid() {
-    const gc  = document.getElementById('grid-xz');
+    const gc  = document.getElementById('grid');
     const lbl = document.getElementById('axis-labels');
-    for (let i = -5; i <= 5; i += 0.5) {
-        const v = parseFloat(i.toFixed(1));
-        const major = (v % 1 === 0);
-        const col = major ? '#3a3a5e' : '#1e1e3a';
-        const r   = major ? 0.005 : 0.0025;
-
+    const R = 6;
+ 
+    for (let i = -R; i <= R; i++) {
+        const col = (i === 0) ? '#555577' : '#2a2a44';
+        const r   = (i === 0) ? 0.006 : 0.003;
+ 
+        // Linie parallel Z (auf xz-Ebene, y=0)
         const a = document.createElement('a-cylinder');
-        a.setAttribute('position', `${v} 0 0`);
+        a.setAttribute('position', `${i} 0 0`);
         a.setAttribute('rotation', '90 0 0');
-        a.setAttribute('radius', r); a.setAttribute('height', '10');
-        a.setAttribute('color', col); a.setAttribute('opacity', '0.6');
+        a.setAttribute('radius', r); a.setAttribute('height', String(R*2));
+        a.setAttribute('color', col); a.setAttribute('opacity', '0.7');
         gc.appendChild(a);
-
+ 
+        // Linie parallel X
         const b = document.createElement('a-cylinder');
-        b.setAttribute('position', `0 0 ${v}`);
+        b.setAttribute('position', `0 0 ${i}`);
         b.setAttribute('rotation', '0 0 90');
-        b.setAttribute('radius', r); b.setAttribute('height', '10');
-        b.setAttribute('color', col); b.setAttribute('opacity', '0.6');
+        b.setAttribute('radius', r); b.setAttribute('height', String(R*2));
+        b.setAttribute('color', col); b.setAttribute('opacity', '0.7');
         gc.appendChild(b);
-
-        if (major && v !== 0) {
-            [[`${v} 0.18 0.1`, '#ff7777'],
-             [`0.18 ${v} 0.1`, '#77ff77'],
-             [`0.18 0.1 ${v}`, '#7799ff']].forEach(([pos, color]) => {
+ 
+        if (i !== 0) {
+            // Beschriftungen X, Y, Z
+            [
+                [`${i} 0.2 0.1`,  '#ff7777'],
+                [`0.2 ${i} 0.1`,  '#77ff77'],
+                [`0.2 0.1 ${i}`,  '#7799ff']
+            ].forEach(([pos, color]) => {
                 const t = document.createElement('a-text');
-                t.setAttribute('value', fmt(v));
+                t.setAttribute('value', fmt(i));
                 t.setAttribute('position', pos);
-                t.setAttribute('scale', '0.18 0.18 0.18');
+                t.setAttribute('scale', '0.22 0.22 0.22');
                 t.setAttribute('color', color);
                 t.setAttribute('align', 'center');
                 lbl.appendChild(t);
             });
         }
     }
+    // Ursprung O
     const o = document.createElement('a-text');
-    o.setAttribute('value', 'O'); o.setAttribute('position', '-0.22 0.18 0.1');
-    o.setAttribute('scale', '0.22 0.22 0.22'); o.setAttribute('color', '#ffffff');
+    o.setAttribute('value', 'O');
+    o.setAttribute('position', '-0.25 0.22 0.1');
+    o.setAttribute('scale', '0.25 0.25 0.25');
+    o.setAttribute('color', '#ffffff');
     lbl.appendChild(o);
 }
-
+ 
+// ===== VORSCHAU-WÜRFEL: nächster Rasterpunkt auf Raycaster-Strahl =====
+function getNearestGridPoint(handEl) {
+    const ray = handEl.components.raycaster;
+    if (!ray) return null;
+ 
+    // Weltposition & Richtung des Raycasters
+    const origin    = new THREE.Vector3();
+    const direction = new THREE.Vector3();
+    handEl.object3D.getWorldPosition(origin);
+    direction.set(0, 0, -1).applyQuaternion(handEl.object3D.quaternion).normalize();
+ 
+    // Suche den Punkt auf dem Strahl, der einem Gitterpunkt am nächsten ist
+    // → minimiere Abstand zu ganzzahligem Gitterpunkt
+    let bestDist = Infinity;
+    let bestPoint = null;
+ 
+    // Taste die ersten 20 Einheiten des Strahls ab
+    for (let t = 0.5; t <= 20; t += 0.05) {
+        const p = origin.clone().addScaledVector(direction, t);
+        const gx = Math.round(p.x);
+        const gy = Math.round(p.y);
+        const gz = Math.round(p.z);
+        const dist = p.distanceTo(new THREE.Vector3(gx, gy, gz));
+        if (dist < bestDist) {
+            bestDist = dist;
+            bestPoint = { x: gx, y: gy, z: gz };
+        }
+    }
+    return (bestDist < 0.35) ? bestPoint : null;
+}
+ 
 // ===== PUNKTE =====
 function createPoint(x, y, z) {
+    // Doppelten Punkt verhindern
+    if (state.points.find(p => p.pos.x===x && p.pos.y===y && p.pos.z===z)) return null;
+ 
     const id = 'pt-' + (state.pc++);
-
     const el = document.createElement('a-sphere');
     el.setAttribute('id', id);
-    el.setAttribute('class', 'point');
+    el.setAttribute('class', 'point clickable');
     el.setAttribute('position', `${x} ${y} ${z}`);
-    el.setAttribute('radius', '0.06');
+    el.setAttribute('radius', '0.08');
     el.setAttribute('color', '#ffee00');
     el.setAttribute('roughness', '0.3');
     el.setAttribute('metalness', '0.4');
-
+ 
     const lbl = document.createElement('a-text');
     lbl.setAttribute('value', `P(${fmt(x)}|${fmt(y)}|${fmt(z)})`);
-    lbl.setAttribute('position', '0 0.14 0');
+    lbl.setAttribute('position', '0 0.17 0');
     lbl.setAttribute('align', 'center');
     lbl.setAttribute('color', '#ffffff');
-    lbl.setAttribute('scale', '0.3 0.3 0.3');
+    lbl.setAttribute('scale', '0.32 0.32 0.32');
     lbl.setAttribute('look-at', '[camera]');
     el.appendChild(lbl);
-
+ 
     document.getElementById('points-container').appendChild(el);
     const pd = { id, el, pos: { x, y, z } };
     state.points.push(pd);
     if (state.showVectors) drawVector(pd);
     return pd;
 }
-
+ 
 function deletePoint(el) {
     const id = el.id;
     const vec = document.getElementById('vec-' + id);
@@ -228,87 +273,86 @@ function deletePoint(el) {
     el.remove();
     state.points = state.points.filter(p => p.id !== id);
 }
-
+ 
 function updatePointLabel(pd) {
     const { x, y, z } = pd.pos;
     const lbl = pd.el.querySelector('a-text');
     if (lbl) lbl.setAttribute('value', `P(${fmt(x)}|${fmt(y)}|${fmt(z)})`);
     pd.el.setAttribute('position', `${x} ${y} ${z}`);
 }
-
+ 
 // ===== ORTSVEKTOREN =====
 function drawVector(pd) {
     const vecId = 'vec-' + pd.id;
     const old = document.getElementById(vecId);
     if (old) old.remove();
-
     const { x, y, z } = pd.pos;
     const len = Math.sqrt(x*x + y*y + z*z);
     if (len < 0.01) return;
-
+ 
     const grp = document.createElement('a-entity');
     grp.setAttribute('id', vecId);
-
+    const dir = new THREE.Vector3(x, y, z).normalize();
+ 
     const cyl = document.createElement('a-cylinder');
     cyl.setAttribute('position', `${x/2} ${y/2} ${z/2}`);
     cyl.setAttribute('radius', '0.012');
     cyl.setAttribute('height', String(len));
     cyl.setAttribute('color', '#ff44ff');
     cyl.setAttribute('opacity', '0.8');
-    const dir = new THREE.Vector3(x, y, z).normalize();
     cyl.object3D.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir);
     grp.appendChild(cyl);
-
+ 
     const cone = document.createElement('a-cone');
     cone.setAttribute('position', `${x} ${y} ${z}`);
-    cone.setAttribute('radius-bottom', '0.035');
+    cone.setAttribute('radius-bottom', '0.04');
     cone.setAttribute('radius-top', '0');
-    cone.setAttribute('height', '0.12');
+    cone.setAttribute('height', '0.14');
     cone.setAttribute('color', '#ff44ff');
     cone.object3D.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir);
     grp.appendChild(cone);
-
+ 
     const lbl = document.createElement('a-text');
     lbl.setAttribute('value', `OP =\n${colVec(x, y, z)}`);
-    lbl.setAttribute('position', `${x/2 + 0.28} ${y/2 + 0.1} ${z/2}`);
+    lbl.setAttribute('position', `${x/2 + 0.3} ${y/2 + 0.1} ${z/2}`);
     lbl.setAttribute('color', '#ff88ff');
-    lbl.setAttribute('scale', '0.22 0.22 0.22');
+    lbl.setAttribute('scale', '0.24 0.24 0.24');
     lbl.setAttribute('align', 'left');
     lbl.setAttribute('look-at', '[camera]');
     grp.appendChild(lbl);
-
+ 
     document.getElementById('vectors-container').appendChild(grp);
 }
-
+ 
 function redrawAllVectors() {
     const vc = document.getElementById('vectors-container');
     while (vc.firstChild) vc.removeChild(vc.firstChild);
     if (state.showVectors) state.points.forEach(drawVector);
 }
-
+ 
 // ===== GERADEN =====
 function createLine(pd1, pd2) {
     const id = 'ln-' + (state.lc++);
     const p1 = pd1.pos, p2 = pd2.pos;
     const dir = new THREE.Vector3(p2.x-p1.x, p2.y-p1.y, p2.z-p1.z).normalize();
     const mid = { x:(p1.x+p2.x)/2, y:(p1.y+p2.y)/2, z:(p1.z+p2.z)/2 };
-
+ 
     const cyl = document.createElement('a-cylinder');
     cyl.setAttribute('id', id);
-    cyl.setAttribute('class', 'line-el');
+    cyl.setAttribute('class', 'line-el clickable');
     cyl.setAttribute('position', `${mid.x} ${mid.y} ${mid.z}`);
-    cyl.setAttribute('radius', '0.013');
+    cyl.setAttribute('radius', '0.015');
     cyl.setAttribute('height', '40');
     cyl.setAttribute('color', '#00ddff');
     cyl.setAttribute('opacity', '0.55');
     cyl.object3D.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir);
     document.getElementById('lines-container').appendChild(cyl);
-
+ 
     const ld = { id, el: cyl, p1id: pd1.id, p2id: pd2.id, p1: {...p1}, p2: {...p2}, dir };
     state.lines.push(ld);
     if (state.showEquations) drawEquation(ld);
 }
-
+ 
 function deleteLine(el) {
     const id = el.id;
     const eq = document.getElementById('eq-' + id);
@@ -316,44 +360,7 @@ function deleteLine(el) {
     el.remove();
     state.lines = state.lines.filter(l => l.id !== id);
 }
-
-// ===== GERADENGLEICHUNGEN =====
-function drawEquation(ld) {
-    const eqId = 'eq-' + ld.id;
-    const old = document.getElementById(eqId);
-    if (old) old.remove();
-
-    const { p1, dir } = ld;
-    const dx = parseFloat(dir.x.toFixed(2));
-    const dy = parseFloat(dir.y.toFixed(2));
-    const dz = parseFloat(dir.z.toFixed(2));
-
-    const txt = `g: x\u20D7 = ${colVec(p1.x, p1.y, p1.z)}\n        + t\u00B7${colVec(dx, dy, dz)}`;
-
-    const mid = {
-        x: (ld.p1.x + ld.p2.x) / 2,
-        y: (ld.p1.y + ld.p2.y) / 2 + 0.5,
-        z: (ld.p1.z + ld.p2.z) / 2
-    };
-
-    const lbl = document.createElement('a-text');
-    lbl.setAttribute('id', eqId);
-    lbl.setAttribute('value', txt);
-    lbl.setAttribute('position', `${mid.x} ${mid.y} ${mid.z}`);
-    lbl.setAttribute('color', '#00eeff');
-    lbl.setAttribute('scale', '0.21 0.21 0.21');
-    lbl.setAttribute('align', 'left');
-    lbl.setAttribute('look-at', '[camera]');
-    lbl.setAttribute('wrap-count', '30');
-    document.getElementById('equations-container').appendChild(lbl);
-}
-
-function redrawAllEquations() {
-    const ec = document.getElementById('equations-container');
-    while (ec.firstChild) ec.removeChild(ec.firstChild);
-    if (state.showEquations) state.lines.forEach(drawEquation);
-}
-
+ 
 function redrawLinesForPoint(pd) {
     state.lines.forEach(ld => {
         if (ld.p1id !== pd.id && ld.p2id !== pd.id) return;
@@ -367,21 +374,40 @@ function redrawLinesForPoint(pd) {
         ld.el.object3D.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir);
     });
 }
-
+ 
+// ===== GERADENGLEICHUNGEN =====
+function drawEquation(ld) {
+    const eqId = 'eq-' + ld.id;
+    const old = document.getElementById(eqId);
+    if (old) old.remove();
+    const { p1, dir } = ld;
+    const dx = parseFloat(dir.x.toFixed(2));
+    const dy = parseFloat(dir.y.toFixed(2));
+    const dz = parseFloat(dir.z.toFixed(2));
+    const txt = `g: x\u20D7 = ${colVec(p1.x,p1.y,p1.z)}\n        + t\u00B7${colVec(dx,dy,dz)}`;
+    const mid = { x:(ld.p1.x+ld.p2.x)/2, y:(ld.p1.y+ld.p2.y)/2+0.55, z:(ld.p1.z+ld.p2.z)/2 };
+    const lbl = document.createElement('a-text');
+    lbl.setAttribute('id', eqId);
+    lbl.setAttribute('value', txt);
+    lbl.setAttribute('position', `${mid.x} ${mid.y} ${mid.z}`);
+    lbl.setAttribute('color', '#00eeff');
+    lbl.setAttribute('scale', '0.22 0.22 0.22');
+    lbl.setAttribute('align', 'left');
+    lbl.setAttribute('look-at', '[camera]');
+    lbl.setAttribute('wrap-count', '30');
+    document.getElementById('equations-container').appendChild(lbl);
+}
+ 
+function redrawAllEquations() {
+    const ec = document.getElementById('equations-container');
+    while (ec.firstChild) ec.removeChild(ec.firstChild);
+    if (state.showEquations) state.lines.forEach(drawEquation);
+}
+ 
 // ===== MODI =====
-const BASE_COL = {
-    'btn-addpoint': '#337733',
-    'btn-delpoint': '#662222',
-    'btn-line':     '#224466',
-    'btn-delline':  '#442255'
-};
-const ACTIVE_COL = {
-    'btn-addpoint': '#55bb55',
-    'btn-delpoint': '#aa3333',
-    'btn-line':     '#336699',
-    'btn-delline':  '#664488'
-};
-
+const BASE_COL  = { 'btn-addpoint':'#337733','btn-delpoint':'#662222','btn-line':'#224466','btn-delline':'#442255' };
+const ACTV_COL  = { 'btn-addpoint':'#55bb55','btn-delpoint':'#aa3333','btn-line':'#3366aa','btn-delline':'#664488' };
+ 
 function activateMode(btnId) {
     state.mode = btnId.replace('btn-', '');
     if (state.firstLinePoint) {
@@ -390,74 +416,69 @@ function activateMode(btnId) {
     }
     Object.keys(BASE_COL).forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.setAttribute('material',
-            `color:${id === btnId ? ACTIVE_COL[id] : BASE_COL[id]};roughness:0.3`);
+        if (el) el.setAttribute('material', `color:${id===btnId ? ACTV_COL[id] : BASE_COL[id]};roughness:0.3`);
     });
+    // Vorschau-Würfel nur im addpoint-Modus
+    document.getElementById('snap-preview').setAttribute('visible', state.mode === 'addpoint' ? 'true' : 'false');
     setStatus();
 }
-
+ 
 function setStatus() {
     const el = document.getElementById('status-text');
     if (!el) return;
     const map = {
-        addpoint: 'Trigger: Punkt setzen\nGrip: Punkt verschieben',
+        addpoint: 'Rechts-Trigger:\nPunkt auf Rasterpunkt setzen\nGrip: Punkt verschieben',
         delpoint: 'Trigger auf Punkt\n→ löscht ihn',
         line:     state.firstLinePoint ? '2. Punkt anvisieren...' : '1. Punkt anvisieren...',
         delline:  'Trigger auf Gerade\n→ löscht sie',
     };
     el.setAttribute('value', 'Modus:\n' + (map[state.mode] || state.mode));
 }
-
-// ===== BUTTON-EVENTS (ein addEventListener pro Button) =====
-document.querySelector('#btn-addpoint').addEventListener('click', () => activateMode('btn-addpoint'));
-document.querySelector('#btn-delpoint').addEventListener('click', () => activateMode('btn-delpoint'));
-document.querySelector('#btn-line').addEventListener('click',     () => activateMode('btn-line'));
-document.querySelector('#btn-delline').addEventListener('click',  () => activateMode('btn-delline'));
-
-document.querySelector('#btn-vectors').addEventListener('click', () => {
+ 
+// ===== BUTTON-EVENTS =====
+document.getElementById('btn-addpoint').addEventListener('click', () => activateMode('btn-addpoint'));
+document.getElementById('btn-delpoint').addEventListener('click', () => activateMode('btn-delpoint'));
+document.getElementById('btn-line').addEventListener('click',     () => activateMode('btn-line'));
+document.getElementById('btn-delline').addEventListener('click',  () => activateMode('btn-delline'));
+ 
+document.getElementById('btn-vectors').addEventListener('click', () => {
     state.showVectors = !state.showVectors;
-    document.getElementById('lbl-vectors').setAttribute('value',
-        `Ortsvektoren: ${state.showVectors ? 'AN' : 'AUS'}`);
-    document.getElementById('btn-vectors').setAttribute('material',
-        `color:${state.showVectors ? '#552266' : '#1a1a2e'};roughness:0.3`);
+    document.getElementById('lbl-vectors').setAttribute('value', `Ortsvektoren: ${state.showVectors?'AN':'AUS'}`);
+    document.getElementById('btn-vectors').setAttribute('material', `color:${state.showVectors?'#552266':'#1a1a2e'};roughness:0.3`);
     redrawAllVectors();
 });
-
-document.querySelector('#btn-equations').addEventListener('click', () => {
+ 
+document.getElementById('btn-equations').addEventListener('click', () => {
     state.showEquations = !state.showEquations;
-    document.getElementById('lbl-equations').setAttribute('value',
-        `Gleichungen: ${state.showEquations ? 'AN' : 'AUS'}`);
-    document.getElementById('btn-equations').setAttribute('material',
-        `color:${state.showEquations ? '#225555' : '#1a1a2e'};roughness:0.3`);
+    document.getElementById('lbl-equations').setAttribute('value', `Gleichungen: ${state.showEquations?'AN':'AUS'}`);
+    document.getElementById('btn-equations').setAttribute('material', `color:${state.showEquations?'#225555':'#1a1a2e'};roughness:0.3`);
     redrawAllEquations();
 });
-
+ 
 // ===== SZENE GELADEN =====
 const scene = document.querySelector('a-scene');
 scene.addEventListener('loaded', () => {
     buildGrid();
     activateMode('btn-addpoint');
-
-    ['rightHand', 'leftHand'].forEach(hid => {
-        const hand = document.getElementById(hid);
-        if (!hand) return;
-
-        // Trigger: Punkt-Aktionen und Raumklick
-        hand.addEventListener('triggerdown', evt => {
-            const hits = evt.target.components.raycaster.intersections;
-            if (!hits.length) return;
-            const hit = hits[0];
-            const el  = hit.object.el;
-
+ 
+    const rightHand = document.getElementById('rightHand');
+    const preview   = document.getElementById('snap-preview');
+ 
+    // Rechter Controller: Trigger → Punkt setzen / löschen / Gerade
+    rightHand.addEventListener('triggerdown', () => {
+        const hits = rightHand.components.raycaster.intersections;
+ 
+        // Button getroffen?
+        if (hits.length) {
+            const el = hits[0].object.el;
+            if (el.classList.contains('clickable') && (el.id.startsWith('btn-') || el.closest('#ui-panel'))) return; // click-Event übernimmt
+ 
             // Punkt getroffen?
             if (el.classList.contains('point')) {
                 const pd = state.points.find(p => p.el === el);
                 if (!pd) return;
-
-                if (state.mode === 'delpoint') {
-                    deletePoint(el);
-                    setStatus();
-                } else if (state.mode === 'line') {
+                if (state.mode === 'delpoint') { deletePoint(el); setStatus(); return; }
+                if (state.mode === 'line') {
                     if (!state.firstLinePoint) {
                         state.firstLinePoint = pd;
                         el.setAttribute('color', '#00ff88');
@@ -468,60 +489,69 @@ scene.addEventListener('loaded', () => {
                         state.firstLinePoint = null;
                         setStatus();
                     }
+                    return;
                 }
-                return;
             }
-
+ 
             // Gerade getroffen?
             if (el.classList.contains('line-el') && state.mode === 'delline') {
-                deleteLine(el);
-                setStatus();
-                return;
+                deleteLine(el); setStatus(); return;
             }
-
-            // Raum getroffen → Punkt setzen
-            if (state.mode === 'addpoint' && !el.closest('#ui-panel')) {
-                const pt = hit.point;
-                createPoint(snap(pt.x), snap(pt.y), snap(pt.z));
-            }
-        });
-
-        // Grip: Punkt greifen
-        hand.addEventListener('gripdown', evt => {
-            if (state.mode !== 'addpoint') return;
-            const hits = evt.target.components.raycaster.intersections;
-            if (!hits.length) return;
-            const el = hits[0].object.el;
-            if (!el.classList.contains('point')) return;
-            const pd = state.points.find(p => p.el === el);
-            if (!pd) return;
-            state.dragging = { pd, hand: evt.target };
-            el.setAttribute('color', '#ff8800');
-        });
-
-        hand.addEventListener('gripup', () => {
-            if (!state.dragging) return;
-            const pd = state.dragging.pd;
-            pd.el.setAttribute('color', '#ffee00');
-            if (state.showVectors) drawVector(pd);
-            redrawLinesForPoint(pd);
-            if (state.showEquations) redrawAllEquations();
-            state.dragging = null;
-        });
+        }
+ 
+        // Punkt setzen: nächsten Rasterpunkt zum Strahl
+        if (state.mode === 'addpoint') {
+            const gp = getNearestGridPoint(rightHand);
+            if (gp) createPoint(gp.x, gp.y, gp.z);
+        }
     });
-
-    // Tick: Dragging live verfolgen
-    scene.addEventListener('tick', () => {
+ 
+    // Grip: Punkt greifen
+    rightHand.addEventListener('gripdown', () => {
+        if (state.mode !== 'addpoint') return;
+        const hits = rightHand.components.raycaster.intersections;
+        if (!hits.length) return;
+        const el = hits[0].object.el;
+        if (!el.classList.contains('point')) return;
+        const pd = state.points.find(p => p.el === el);
+        if (!pd) return;
+        state.dragging = pd;
+        el.setAttribute('color', '#ff8800');
+    });
+ 
+    rightHand.addEventListener('gripup', () => {
         if (!state.dragging) return;
-        const { pd, hand } = state.dragging;
-        const wp = new THREE.Vector3();
-        hand.object3D.getWorldPosition(wp);
-        const d = new THREE.Vector3(0, 0, -1).applyQuaternion(hand.object3D.quaternion);
-        wp.addScaledVector(d, 0.9);
-        const nx = snap(wp.x), ny = snap(wp.y), nz = snap(wp.z);
-        if (nx !== pd.pos.x || ny !== pd.pos.y || nz !== pd.pos.z) {
-            pd.pos = { x: nx, y: ny, z: nz };
-            updatePointLabel(pd);
+        const pd = state.dragging;
+        pd.el.setAttribute('color', '#ffee00');
+        if (state.showVectors) drawVector(pd);
+        redrawLinesForPoint(pd);
+        if (state.showEquations) redrawAllEquations();
+        state.dragging = null;
+    });
+ 
+    // Tick: Vorschau-Würfel bewegen + Dragging
+    scene.addEventListener('tick', () => {
+        // Vorschau
+        if (state.mode === 'addpoint' && !state.dragging) {
+            const gp = getNearestGridPoint(rightHand);
+            if (gp) {
+                preview.setAttribute('visible', 'true');
+                preview.setAttribute('position', `${gp.x} ${gp.y} ${gp.z}`);
+            } else {
+                preview.setAttribute('visible', 'false');
+            }
+        }
+ 
+        // Dragging
+        if (state.dragging) {
+            const gp = getNearestGridPoint(rightHand);
+            if (gp) {
+                const pd = state.dragging;
+                if (gp.x !== pd.pos.x || gp.y !== pd.pos.y || gp.z !== pd.pos.z) {
+                    pd.pos = { ...gp };
+                    updatePointLabel(pd);
+                }
+            }
         }
     });
 });
