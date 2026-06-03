@@ -1,26 +1,12 @@
-import { initXR } from "./xr.js";
-import { createCoordinateSystem } from "./coordinateSystem.js";
-import { setupTeleport } from "./teleport.js";
-import { setupPoints } from "./points.js";
-import { setupPointEditor } from "./pointEditor.js";
+import { XRApp } from './src/core/xr.js';
+import { CoordinateSystem } from './src/math/axes.js';
 
-const app = initXR();
+// Hauptanwendung starten
+const app = new XRApp();
+document.body.appendChild(app.renderer.domElement);
 
-createCoordinateSystem(app.scene);
-setupPoints(app);
+// Koordinatensystem hinzufügen
+const coordinateSystem = new CoordinateSystem(app.scene, 5);
 
-setupPointEditor(app);
-
-setupTeleport(app);
-
-app.renderer.setAnimationLoop(() => {
-
-    app.updateTeleport();
-
-    app.renderer.render(
-        app.scene,
-        app.camera
-    );
-    if(app.pointEditorUpdate)
-    app.pointEditorUpdate();
-});
+// Animation starten
+app.animate();
