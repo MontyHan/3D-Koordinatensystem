@@ -68,12 +68,26 @@ export function initXR(){
             );
         }
     );
+    const rightController =
+    renderer.xr.getController(0);
 
+scene.add(rightController);
+
+let triggerPressed = false;
+
+rightController.addEventListener(
+    "selectstart",
+    ()=>{
+        triggerPressed = true;
+    }
+);
     return {
         scene,
         camera,
         renderer,
-        player
+        player,
+        rightController,
+        triggerPressed
     };
 
 }
